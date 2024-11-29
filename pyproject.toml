@@ -1,0 +1,54 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "Younger-App-DL"
+description = "Deep Learning Application Module of the Younger Project."
+version = "0.0.1alpha1"
+readme = "README.md"
+requires-python = ">=3.11"
+license = {text = "Apache Software License"}
+keywords = ["Younger", "Application", "Deep Learning", "Artificial Intelligence"]
+authors = [{name = "Jason-Young-AI", email = "AI.Jason.Young@outlook.com"}]
+maintainers = [{name = "Jason-Young-AI", email = "AI.Jason.Young@outlook.com"}]
+classifiers=[
+    "Development Status :: 3 - Alpha",
+
+    'Intended Audience :: Developers',
+    'Intended Audience :: Education',
+    'Intended Audience :: Science/Research',
+    'Topic :: Scientific/Engineering :: Artificial Intelligence',
+
+    'License :: OSI Approved :: Apache Software License',
+
+    'Operating System :: OS Independent',
+
+    'Programming Language :: Python :: 3',
+    'Programming Language :: Python :: 3.11',
+    "Programming Language :: Python :: 3 :: Only",
+]
+
+dependencies = [
+    "tqdm",
+    "click",
+    "psutil",
+    "pandas",
+    "networkx",
+    "python-semantic-release"
+]
+
+[project.optional-dependencies]
+applications = ["torch-geometric"]
+developer = [
+    "sphinx"
+]
+
+[project.urls]
+Homepage = "https://apps.yangs.cloud/dl"
+Issues = "https://github.com/YangsCloud/Younger-App-DL/issues"
+Source = "https://github.com/YangsCloud/Younger-App-DL"
+Repository = "https://github.com/YangsCloud/Younger-App-DL.git"
+
+[project.scripts]
+younger-app-dl = "younger_app_dl.commands.main:main"
