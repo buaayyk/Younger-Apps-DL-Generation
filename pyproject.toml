@@ -2,8 +2,12 @@
 requires = ["setuptools"]
 build-backend = "setuptools.build_meta"
 
+[tool.setuptools.packages.find]
+include = ["younger_apps_dl"]
+exclude = ["tests", "third_parties"]
+
 [project]
-name = "Younger-App-DL"
+name = "Younger-Apps-DL"
 description = "Deep Learning Application Module of the Younger Project."
 version = "0.0.1alpha1"
 readme = "README.md"
@@ -45,10 +49,13 @@ developer = [
 ]
 
 [project.urls]
-Homepage = "https://apps.yangs.cloud/dl"
-Issues = "https://github.com/YangsCloud/Younger-App-DL/issues"
-Source = "https://github.com/YangsCloud/Younger-App-DL"
-Repository = "https://github.com/YangsCloud/Younger-App-DL.git"
+Homepage = "https://younger.yangs.ai/apps/dl"
+Issues = "https://github.com/Yangs-AI/Younger-Apps-DL/issues"
+Source = "https://github.com/Yangs-AI/Younger-Apps-DL"
+Repository = "https://github.com/Yangs-AI/Younger-Apps-DL.git"
 
 [project.scripts]
-younger-app-dl = "younger_app_dl.commands.main:main"
+younger-apps-dl = "younger_apps_dl.commands.main:main"
+
+[project.entry-points."younger.apps"]
+dl = "younger_apps-dl.commands.main:main"
