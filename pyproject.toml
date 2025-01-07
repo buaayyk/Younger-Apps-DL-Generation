@@ -39,11 +39,11 @@ dependencies = [
     "psutil",
     "pandas",
     "networkx",
-    "python-semantic-release"
+    "python-semantic-release",
+    "torch-geometric"
 ]
 
 [project.optional-dependencies]
-applications = ["torch-geometric"]
 developer = [
     "sphinx"
 ]
