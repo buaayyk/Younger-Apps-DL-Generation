@@ -35,9 +35,9 @@ classifiers=[
 
 dependencies = [
     "tqdm",
+    "torch",
     "click",
     "psutil",
-    "pandas",
     "networkx",
     "python-semantic-release",
     "torch-geometric"

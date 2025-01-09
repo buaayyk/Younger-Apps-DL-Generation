@@ -6,7 +6,7 @@
 # Author: Jason Young (杨郑鑫).
 # E-Mail: AI.Jason.Young@outlook.com
 # Last Modified by: Jason Young (杨郑鑫)
-# Last Modified time: 2025-01-03 09:56:59
+# Last Modified time: 2025-01-09 11:08:35
 # Copyright (c) 2024 Yangs.AI
 # 
 # This source code is licensed under the Apache License 2.0 found in the
@@ -25,7 +25,7 @@ def standard():
     pass
 
 
-@standard.group(name='train')
+@standard.command(name='train')
 @click.option('--task-name', type=str)
 @click.option('--config-filepath', type=str)
 @click.option('--checkpoint-dirpath', type=str)
@@ -50,4 +50,24 @@ def standard():
 @click.option('--seed', type=int, default=1234)
 @click.option('--make-deterministic', action='store_true')
 def standard_train():
+    pass
+
+
+@standard.command(name='test')
+@click.option('--task-name', type=str)
+@click.option('--config-filepath', type=str)
+@click.option('--checkpoint-filepath', type=str)
+@click.option('--test-batch-size', type=int, default=32)
+@click.option('--device', type=str, choices=['CPU', 'GPU'], default='GPU')
+def standard_test():
+    pass
+
+
+@standard.command(name='cli')
+@click.option('--task-name', type=str)
+@click.option('--config-filepath', type=str)
+@click.option('--checkpoint-filepath', type=str)
+@click.option('--test-batch-size', type=int, default=32)
+@click.option('--device', type=str, choices=['CPU', 'GPU'], default='GPU')
+def standard_cli():
     pass

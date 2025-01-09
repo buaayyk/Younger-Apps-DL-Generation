@@ -6,7 +6,7 @@
 # Author: Jason Young (杨郑鑫).
 # E-Mail: AI.Jason.Young@outlook.com
 # Last Modified by: Jason Young (杨郑鑫)
-# Last Modified time: 2024-11-27 14:29:26
+# Last Modified time: 2025-01-09 10:50:01
 # Copyright (c) 2024 Yangs.AI
 # 
 # This source code is licensed under the Apache License 2.0 found in the
@@ -63,7 +63,7 @@ def get_model_parameters_number(model: torch.nn.Module) -> int:
     return parameters_number
 
 
-def get_device_descriptor(device: str, index: int) -> torch.device:
+def get_device_descriptor(device: Literal['CPU', 'GPU'], index: int) -> torch.device:
     if device == 'CPU':
         device_name = 'cpu'
 

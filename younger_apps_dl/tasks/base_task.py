@@ -16,11 +16,12 @@ import torch.utils.data
 from typing import Any, Callable, Literal
 from collections import OrderedDict
 
-from younger.commons.logging import set_logger
+from younger.commons.logging import set_logger, Logger
 from younger.commons.constants import YoungerHandle
+from younger_apps_dl.utils.neural_network import get_device_descriptor
 
 
-class YoungerTask(object):
+class YoungerAppsDLBaseTask(object):
     def __init__(self, custom_config: dict) -> None:
         logging_config = dict()
         custom_logging_config = custom_config.get('logging', dict())
@@ -33,19 +34,18 @@ class YoungerTask(object):
         self._logger = None
 
     @property
-    def device_descriptor(self):
+    def device_descriptor(self) -> torch.device:
+        if self._device_descriptor is None:
+            self._device_descriptor = get_device_descriptor('CPU', 0)
         return self._device_descriptor
 
     @property
-    def logger(self):
-        if self._logger:
-            logger = self._logger
-        else:
+    def logger(self) -> Logger:
+        if self._logger is None:
             self._logger = set_logger(self._logging_config['name'], mode=self._logging_config['mode'], level=self._logging_config['level'], logging_filepath=self._logging_config['filepath'])
-            logger = self._logger
-        return logger
+        return self.logger
 
-    def to(self, device_descriptor):
+    def to(self, device_descriptor: torch.device):
         self._device_descriptor = device_descriptor
 
     def reset(self):
@@ -57,15 +57,15 @@ class YoungerTask(object):
         return
 
     @property
-    def model(self):
+    def model(self) -> torch.nn.Module:
         raise NotImplementedError
 
     @model.setter
-    def model(self, model):
+    def model(self, model: torch.nn.Module) -> torch.nn.Module:
         raise NotImplementedError
 
     @property
-    def optimizer(self):
+    def optimizer(self) -> torch.optim.Optimizer:
         raise NotImplementedError
 
     @property
