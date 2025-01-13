@@ -1,13 +1,17 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-#
-# Copyright (c) Jason Young (杨郑鑫).
-#
-# E-Mail: <AI.Jason.Young@outlook.com>
-# 2024-05-19 18:30
-#
-# This source code is licensed under the Apache-2.0 license found in the
+# -*- encoding=utf8 -*-
+
+########################################################################
+# Created time: 2025-01-09 22:36:51
+# Author: Jason Young (杨郑鑫).
+# E-Mail: AI.Jason.Young@outlook.com
+# Last Modified by: Jason Young (杨郑鑫)
+# Last Modified time: 2025-01-13 22:30:02
+# Copyright (c) 2025 Yangs.AI
+# 
+# This source code is licensed under the Apache License 2.0 found in the
 # LICENSE file in the root directory of this source tree.
+########################################################################
 
 
 import torch
@@ -23,13 +27,15 @@ from younger_apps_dl.utils.neural_network import get_device_descriptor
 
 class YoungerAppsDLBaseTask(object):
     def __init__(self, custom_config: dict) -> None:
-        logging_config = dict()
         custom_logging_config = custom_config.get('logging', dict())
-        logging_config['name'] = custom_logging_config.get('name', YoungerHandle.ApplicationsName + '-Task-' + 'Default')
+
+        logging_config = dict()
+        logging_config['name'] = custom_logging_config.get('name', YoungerHandle.ApplicationsName + '-DL-Task-' + 'Base')
         logging_config['mode'] = custom_logging_config.get('mode', 'console')
         logging_config['level'] = custom_logging_config.get('level', 'INFO')
         logging_config['filepath'] = custom_logging_config.get('filepath', None)
         self._logging_config = logging_config
+
         self._device_descriptor = None
         self._logger = None
 
