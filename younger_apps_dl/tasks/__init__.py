@@ -6,7 +6,7 @@
 # Author: Jason Young (杨郑鑫).
 # E-Mail: AI.Jason.Young@outlook.com
 # Last Modified by: Jason Young (杨郑鑫)
-# Last Modified time: 2025-01-09 10:34:58
+# Last Modified time: 2025-01-14 13:05:15
 # Copyright (c) 2024 - 2025 Yangs.AI
 # 
 # This source code is licensed under the Apache License 2.0 found in the
@@ -14,16 +14,17 @@
 ########################################################################
 
 
-from younger_apps_dl.tasks.base_task import YoungerTask
-from younger_apps_dl.tasks.performance_prediction import PerformancePrediction
-from younger_apps_dl.tasks.block_embedding import BlockEmbedding
-from younger_apps_dl.tasks.node_prediction import NodePrediction
-from younger_apps_dl.tasks.link_prediction import LinkPridiction
-from younger_apps_dl.tasks.node_embedding import NodeEmbedding
-from younger_apps_dl.tasks.ssl_prediction import SSLPrediction
+from younger_apps_dl.tasks.base import BaseTask
+
+from younger_apps_dl.tasks.standard.dag.performance_prediction import PerformancePrediction
+from younger_apps_dl.tasks.standard.dag.block_embedding import BlockEmbedding
+from younger_apps_dl.tasks.standard.dag.node_prediction import NodePrediction
+from younger_apps_dl.tasks.standard.dag.edge_prediction import LinkPridiction
+from younger_apps_dl.tasks.standard.dag.node_embedding import NodeEmbedding
+from younger_apps_dl.tasks.standard.dag.ssl_node_prediction import SSLPrediction
 
 
-task_builders: dict[str, YoungerTask] = dict(
+standard_task_builders: dict[str, BaseTask] = dict(
     performance_prediction = PerformancePrediction,
     block_embedding = BlockEmbedding,
     node_prediciton = NodePrediction,

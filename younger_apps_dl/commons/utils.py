@@ -2,12 +2,12 @@
 # -*- encoding=utf8 -*-
 
 ########################################################################
-# Created time: 2024-11-02 22:02:10
+# Created time: 2025-01-14 10:00:57
 # Author: Jason Young (杨郑鑫).
 # E-Mail: AI.Jason.Young@outlook.com
 # Last Modified by: Jason Young (杨郑鑫)
-# Last Modified time: 2025-01-09 10:50:01
-# Copyright (c) 2024 Yangs.AI
+# Last Modified time: 2025-01-14 10:05:00
+# Copyright (c) 2025 Yangs.AI
 # 
 # This source code is licensed under the Apache License 2.0 found in the
 # LICENSE file in the root directory of this source tree.
@@ -21,10 +21,7 @@ import numpy
 import random
 import pathlib
 
-from typing import Any, Iterable, Literal
-from numpy.typing import NDArray
-
-from younger.commons.io import save_json, save_pickle, load_json, load_pickle
+from typing import Any, Literal, Iterable
 
 
 def set_deterministic(make_deterministic: bool = True):
@@ -49,6 +46,11 @@ def fix_random_procedure(seed: int):
     torch.cuda.manual_seed_all(seed)
     torch.backends.cudnn.benchmark = False
     torch.backends.cudnn.deterministic = True
+
+
+def get_logging_metrics_str(metrics: dict[str, str]) -> str:
+    metrics_str = ' '.join([f'[{metric_name}]={metric_value}' for metric_name, metric_value in metrics.items()])
+    return metrics_str
 
 
 def get_model_parameters_number(model: torch.nn.Module) -> int:

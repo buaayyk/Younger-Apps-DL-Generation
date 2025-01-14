@@ -27,7 +27,7 @@ from younger.datasets.utils.translation import get_complete_attributes_of_node
 
 from younger_apps_dl.models import MAEGIN
 from younger_apps_dl.datasets import SSLDataset
-from younger_apps_dl.tasks.base_task import YoungerTask
+from younger.apps.dl.younger_apps_dl.tasks.base import YoungerTask
 from younger_apps_dl.utils.neural_network import load_checkpoint, save_pickle
 
 

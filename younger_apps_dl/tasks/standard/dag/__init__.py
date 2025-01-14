@@ -2,11 +2,11 @@
 # -*- encoding=utf8 -*-
 
 ########################################################################
-# Created time: 2025-01-13 22:30:53
+# Created time: 2025-01-14 08:46:11
 # Author: Jason Young (杨郑鑫).
 # E-Mail: AI.Jason.Young@outlook.com
 # Last Modified by: Jason Young (杨郑鑫)
-# Last Modified time: 2025-01-13 22:32:06
+# Last Modified time: 2025-01-14 08:46:16
 # Copyright (c) 2025 Yangs.AI
 # 
 # This source code is licensed under the Apache License 2.0 found in the
@@ -14,7 +14,3 @@
 ########################################################################
 
 
-from ..base_task import YADLBaseTask
-
-
-class YoungerAppsDLStandardTask():
