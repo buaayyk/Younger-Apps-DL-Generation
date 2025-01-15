@@ -57,4 +57,4 @@ Repository = "https://github.com/Yangs-AI/Younger-Apps-DL.git"
 younger-apps-dl = "younger_apps_dl.commands.main:main"
 
 [project.entry-points."younger.apps"]
-dl = "younger_apps-dl.commands.main:main"
+dl = "younger_apps_dl.commands.main:main"
