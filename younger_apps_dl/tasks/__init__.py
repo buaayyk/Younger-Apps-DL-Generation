@@ -6,7 +6,7 @@
 # Author: Jason Young (杨郑鑫).
 # E-Mail: AI.Jason.Young@outlook.com
 # Last Modified by: Jason Young (杨郑鑫)
-# Last Modified time: 2025-01-16 16:25:09
+# Last Modified time: 2025-02-21 13:23:23
 # Copyright (c) 2024 - 2025 Yangs.AI
 # 
 # This source code is licensed under the Apache License 2.0 found in the
@@ -17,10 +17,15 @@
 from abc import ABC, abstractmethod
 from typing import Literal, Type
 
-from younger_apps_dl.commons.mixins import OptionsMixin
+from younger.commons.logging import Logger
+
+from younger_apps_dl.commons.mixins.options import OptionsMixin
 
 
 class BaseTask(OptionsMixin, ABC):
+    def __init__(self, configuration: dict) -> None:
+        super().__init__(configuration)
+
     def train(self):
         raise NotImplementedError
 

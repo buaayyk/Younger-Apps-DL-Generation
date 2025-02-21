@@ -6,7 +6,7 @@
 # Author: Jason Young (杨郑鑫).
 # E-Mail: AI.Jason.Young@outlook.com
 # Last Modified by: Jason Young (杨郑鑫)
-# Last Modified time: 2025-01-16 16:19:19
+# Last Modified time: 2025-02-21 13:25:16
 # Copyright (c) 2025 Yangs.AI
 # 
 # This source code is licensed under the Apache License 2.0 found in the
@@ -17,11 +17,12 @@
 from abc import ABC, abstractmethod
 from typing import Literal, Type
 
-from younger_apps_dl.commons.mixins import OptionsMixin
+from younger_apps_dl.commons.mixins.options import OptionsMixin
 
 
 class BaseComponent(OptionsMixin, ABC):
-    pass
+    def __init__(self, configuration: dict) -> None:
+        super().__init__(configuration)
 
 
 COMPONENT_REGISTRY: dict[ Literal['model', 'dataset'], dict[ str, Type[BaseComponent] ] ] = dict(

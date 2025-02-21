@@ -6,7 +6,7 @@
 # Author: Jason Young (杨郑鑫).
 # E-Mail: AI.Jason.Young@outlook.com
 # Last Modified by: Jason Young (杨郑鑫)
-# Last Modified time: 2025-01-17 09:36:44
+# Last Modified time: 2025-02-21 13:17:38
 # Copyright (c) 2024 Yangs.AI
 # 
 # This source code is licensed under the Apache License 2.0 found in the
@@ -21,8 +21,6 @@ import tabulate
 from typing import Literal
 
 from younger.commons.io import load_toml, save_toml
-
-from younger_apps_dl.commands import equip_logger
 
 
 @click.group(name='younger-apps-dl')
@@ -87,7 +85,6 @@ def option(some_type: Literal['components', 'engines', 'tasks'], some_kind: str,
 @click.option('--task-name',        required=True,  type=str, help='Indicates the name of task.')
 @click.option('--task-step',        required=True,  type=click.Choice(['train', 'evaluate', 'predict', 'preprocess', 'postprocess'], case_sensitive=True), help='Indicates the step of task.')
 @click.option('--options-filepath', required=False, type=click.Path(exists=False, file_okay=True, dir_okay=False, path_type=pathlib.Path), default=None, help='Path to the options file; if not provided, default options will be used.')
-@click.option('--logging-filepath', required=False, type=click.Path(exists=False, file_okay=True, dir_okay=False, path_type=pathlib.Path), default=None, help='Path to the log file; if not provided, defaults to outputting to the terminal only.')
 def train(task_kind, task_name, task_step, options_filepath, logging_filepath):
     """
     _summary_
@@ -104,8 +101,6 @@ def train(task_kind, task_name, task_step, options_filepath, logging_filepath):
     :type logging_filepath: _type_
     :raises exception: _description_
     """
-
-    equip_logger(logging_filepath)
 
     from younger_apps_dl.tasks import TASK_REGISTRY
     try:
