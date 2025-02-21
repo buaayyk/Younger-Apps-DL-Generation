@@ -2,11 +2,11 @@
 # -*- encoding=utf8 -*-
 
 ########################################################################
-# Created time: 2025-01-13 22:30:16
+# Created time: 2025-01-08 13:52:06
 # Author: Jason Young (杨郑鑫).
 # E-Mail: AI.Jason.Young@outlook.com
 # Last Modified by: Jason Young (杨郑鑫)
-# Last Modified time: 2025-01-14 13:04:37
+# Last Modified time: 2025-01-16 16:09:50
 # Copyright (c) 2025 Yangs.AI
 # 
 # This source code is licensed under the Apache License 2.0 found in the
@@ -14,4 +14,3 @@
 ########################################################################
 
 
-from .base import StandardTask

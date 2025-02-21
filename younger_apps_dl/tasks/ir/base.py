@@ -6,7 +6,7 @@
 # Author: Jason Young (杨郑鑫).
 # E-Mail: AI.Jason.Young@outlook.com
 # Last Modified by: Jason Young (杨郑鑫)
-# Last Modified time: 2025-01-14 15:33:19
+# Last Modified time: 2025-01-16 11:12:53
 # Copyright (c) 2025 Yangs.AI
 # 
 # This source code is licensed under the Apache License 2.0 found in the
@@ -14,6 +14,8 @@
 ########################################################################
 
 
+import abc
+import pydantic
 import torch
 import torch.utils.data
 
@@ -138,3 +140,11 @@ class BaseTask(object):
         assert stage in {'Step', 'Epoch'}, f'Only Support \'Step\' or \'Epoch\''
         self._epoch = epoch
         self._step = step
+
+
+    checkpoint = dict()
+    checkpoint['Epoch'] = epoch
+    checkpoint['Step'] = step
+    checkpoint['model_state'] = task.model.module.state_dict() if is_distribution else task.model.state_dict()
+    checkpoint['optimizer_state'] = task.optimizer.state_dict()
+    save_checkpoint(checkpoint, checkpoint_path=checkpoint_dirpath, checkpoint_name=checkpoint_name, keep_number=keep_number)

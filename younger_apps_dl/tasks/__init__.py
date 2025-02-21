@@ -6,7 +6,7 @@
 # Author: Jason Young (杨郑鑫).
 # E-Mail: AI.Jason.Young@outlook.com
 # Last Modified by: Jason Young (杨郑鑫)
-# Last Modified time: 2025-01-14 13:05:15
+# Last Modified time: 2025-01-16 16:25:09
 # Copyright (c) 2024 - 2025 Yangs.AI
 # 
 # This source code is licensed under the Apache License 2.0 found in the
@@ -14,21 +14,46 @@
 ########################################################################
 
 
-from younger_apps_dl.tasks.base import BaseTask
+from abc import ABC, abstractmethod
+from typing import Literal, Type
 
-from younger_apps_dl.tasks.standard.dag.performance_prediction import PerformancePrediction
-from younger_apps_dl.tasks.standard.dag.block_embedding import BlockEmbedding
-from younger_apps_dl.tasks.standard.dag.node_prediction import NodePrediction
-from younger_apps_dl.tasks.standard.dag.edge_prediction import LinkPridiction
-from younger_apps_dl.tasks.standard.dag.node_embedding import NodeEmbedding
-from younger_apps_dl.tasks.standard.dag.ssl_node_prediction import SSLPrediction
+from younger_apps_dl.commons.mixins import OptionsMixin
 
 
-standard_task_builders: dict[str, BaseTask] = dict(
-    performance_prediction = PerformancePrediction,
-    block_embedding = BlockEmbedding,
-    node_prediciton = NodePrediction,
-    link_prediction = LinkPridiction,
-    node_embedding = NodeEmbedding,
-    ssl_prediction= SSLPrediction,
+class BaseTask(OptionsMixin, ABC):
+    def train(self):
+        raise NotImplementedError
+
+    def evaluate(self):
+        raise NotImplementedError
+
+    def predict(self):
+        raise NotImplementedError
+
+    def preprocess(self):
+        raise NotImplementedError
+
+    def postprocess(self):
+        raise NotImplementedError
+
+
+TASK_REGISTRY: dict[ Literal['ir', 'core'], dict[ str, Type[BaseTask] ] ] = dict(
+    ir = dict(),
+    core = dict(),
 )
+
+
+def register_task(
+    kind: Literal['ir', 'core'],
+    name: str
+):
+    assert kind in {'ir', 'core'}
+    assert name not in TASK_REGISTRY[kind]
+    def wrapper(cls: Type[BaseTask]) -> Type[BaseTask]:
+        assert issubclass(cls, BaseTask)
+        TASK_REGISTRY[kind][name] = cls
+        return cls
+    return wrapper
+
+from .ir import *
+from .core import *

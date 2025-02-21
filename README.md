@@ -10,3 +10,7 @@ Younger-Apps-DL is a submodule of the Younger project, focused on providing appl
 - Training and Inference
 - Performance Optimization
 - Easy Integration
+
+## Components, Engines, and Tasks
+
+Younger-Apps-DL integrates multiple `Components` into `Tasks`, which define interfaces for the `Engine` to perform data processing, training, evaluation, and prediction operations.
