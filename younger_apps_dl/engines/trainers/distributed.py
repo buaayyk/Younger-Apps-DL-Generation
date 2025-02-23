@@ -6,7 +6,7 @@
 # Author: Jason Young (杨郑鑫).
 # E-Mail: AI.Jason.Young@outlook.com
 # Last Modified by: Jason Young (杨郑鑫)
-# Last Modified time: 2025-01-15 15:17:56
+# Last Modified time: 2025-02-23 22:55:42
 # Copyright (c) 2024 Yangs.AI
 # 
 # This source code is licensed under the Apache License 2.0 found in the
@@ -22,296 +22,238 @@ import pathlib
 
 from torch import distributed
 from typing import Literal
+from pydantic import BaseModel, Field
 
 from torch.utils.data.distributed import DistributedSampler
-from torch.utils.data import RandomSampler
+from torch.utils.data import Dataset, RandomSampler
 from torch_geometric.loader import DataLoader
 
 from younger.commons.io import create_dir, load_toml
 
-from younger_apps_dl.tasks import standard_task_builders, StandardTask
-from younger_apps_dl.commons.utils import get_model_parameters_number, get_device_descriptor, get_logging_metrics_str, fix_random_procedure, set_deterministic
+from younger_apps_dl.commons.logging import logger, equip_logger
+from younger_apps_dl.commons.utils import load_checkpoint, save_checkpoint, get_model_parameters_number, get_device_descriptor, get_logging_metrics_str, make_reproducible
+
+from younger_apps_dl.engines import BaseEngine
 
 
-def exact_eval(
-    task: StandardTask,
-    dataloader: DataLoader, 
-    split: Literal['Valid', 'Test'],
-):
-    task.logger.info(f'-> {split} Begin ...')
-    all_outputs = list()
-    all_goldens = list()
-    tic = time.time()
-    with torch.no_grad():
-        with tqdm.tqdm(total=len(dataloader)) as progress_bar:
-            for index, minibatch in enumerate(dataloader, start=1):
-                eval_result = task.eval(minibatch)
-                if eval_result is None:
-                    pass
-                else:
-                    outputs, goldens = eval_result
-                    all_outputs.append(outputs)
-                    all_goldens.append(goldens)
-                progress_bar.update(1)
-    toc = time.time()
+class DistributedTrainerOptions(BaseModel):
+    # Main Options
+    logging_filepath: str = Field('./default_distributed_trainer.log', description="Logging file path where logs will be saved, default to None, which may save to a default path that is determined by the Younger.")
 
-    logs = task.eval_calculate_logs(all_outputs, all_goldens)
-    if logs is None:
-        task.logger.info(f'-> {split} Finished. No User Defined Output')
-    else:
-        metrics = dict()
-        for log_key, (log_value, log_format) in logs.items():
-            metrics[log_key] = log_format(float(log_value))
-        task.logger.info(f'-> {split} Finished. Overall Result - {get_logging_metrics_str(metrics)} (Time Cost = {toc-tic:.2f}s)')
+    # Distribution Options
+    master_addr: str = Field('localhost', description="Master address for distributed training.")
+    master_port: str = Field('16161', description="Master port for distributed training.")
+    master_rank: int = Field(0, ge=0, description="Master rank for distributed training. It should be < world_size and >= 0.")
+    world_size: int = Field(2, gt=1, description="Number of devices participating in distributed training. It should be > 1.")
 
+    # Checkpoint Options
+    checkpoint_basename: str = Field('checkpoint', description="Base name of the checkpoint for save/load.")
 
-def exact_train(
-    rank: int,
+    ## Save
+    checkpoint_save_dirpath: str | None = Field(None, description="Directory path for saving checkpoints.")
+    checkpoint_save_number: int = Field(5, ge=1, description="Number of checkpoints to save on disk.")
+    checkpoint_save_metric: str | None = Field(None, description="Metric name for sorting the checkpoints. If None, it will use the latest N checkpoints.")
 
-    is_distribution: bool, master_rank: int, world_size: int, seed: int, make_deterministic: bool,
+    ## Load
+    checkpoint_load_dirpath: str | None = Field(None, description="Directory path for loading checkpoints.")
+    checkpoint_load_number: int = Field(5, ge=1, description="Number of checkpoints to load from disk.")
+    checkpoint_load_metric: str | None = Field(None, description="Metric name for sorting the checkpoints. If None, it will use the latest N checkpoints.")
 
-    task: StandardTask,
+    ## Reset
+    reset_iteration: bool = Field(True, description="Whether to reset the iteration status (epoch, step) when loading a checkpoint.")
+    reset_optimizer: bool = Field(True, description="Whether to reset the optimizer when loading a checkpoint.")
+    reset_scheduler: bool = Field(True, description="Whether to reset the scheduler when loading a checkpoint.")
 
-    checkpoint_dirpath: pathlib.Path, checkpoint_name: str, keep_number: int,
+    # Iteration Options
+    seed: int = Field(3407, ge=0, description="Random seed for reproducibility.")
+    shuffle: bool = Field(True, description="Shuffle the training data each epoch.")
+    life_cycle: int = Field(100, ge=1, description="Lefe cycle of the training process (in epochs).")
 
-    train_batch_size: int, valid_batch_size: int, shuffle: bool,
+    report_period: int = Field(100, ge=1, description="Period (in steps) to report the training status.")
+    update_period: int = Field(1, ge=1, description="Period (in steps) to update the model parameters.")
 
-    checkpoint_filepath: pathlib.Path, reset_optimizer: bool, reset_period: bool,
-
-    life_cycle:int, report_period: int, update_period: int, train_period: int, valid_period: int,
-
-    device: Literal['CPU', 'GPU'],
-):
-    device_descriptor = get_device_descriptor(device, rank)
-    fix_random_procedure(seed)
-    set_deterministic(make_deterministic)
-
-    task.clean()
-    task.to(device_descriptor)
-    task.logger.info(f'-> Device \'{device_descriptor}\' Used')
-
-    is_master = rank == master_rank
-    torch.autograd.set_detect_anomaly(True)
-
-    if is_master:
-        task.logger.disabled = False
-    else:
-        task.logger.disabled = True
-
-    task.logger.info(f'   Distribution: {is_distribution};{f" (Total {world_size} GPU)" if is_distribution else ""}')
-
-    create_dir(checkpoint_dirpath)
-    task.logger.info(f'-> Checkpoints will be saved into: \'{checkpoint_dirpath}\'')
-
-    # Build Model
-    task.logger.info(f'-> Preparing Model ...')
-
-    # Print Model
-    task.logger.info(f'-> Model Specs:')
-    parameters_number = get_model_parameters_number(task.model)
-    parameters_number_str = str()
-    for name, number in parameters_number.items():
-        parameters_number_str += f'{name}: {number} Elements ;\n'
-    parameters_number_str += f'Total: {sum(parameters_number.values())} Elements .\n'
-    task.logger.info(
-        f'\n======= v Model Architecture v ======='
-        f'\n{task.model}'
-        f'\n'
-        f'\n====== v Number of Parameters v ======'
-        f'\n{parameters_number_str}'
-    )
-
-    # Model
-    if is_distribution:
-        distributed.init_process_group('nccl', rank=rank, world_size=world_size)
-        task.model = torch.nn.parallel.DistributedDataParallel(task.model, device_ids=[rank], find_unused_parameters=False)
-
-    # Datasets
-
-    # Training Dataset
-    if is_distribution:
-        train_sampler = DistributedSampler(task.train_dataset, num_replicas=world_size, rank=rank, shuffle=shuffle, seed=seed, drop_last=True)
-    else:
-        train_sampler = RandomSampler(task.train_dataset) if shuffle else None
-    train_dataloader = DataLoader(task.train_dataset, batch_size=train_batch_size, sampler=train_sampler)
-
-    # Validation Dataset
-    if task.valid_dataset:
-        valid_dataloader = DataLoader(task.valid_dataset, batch_size=valid_batch_size, shuffle=False)
-    else:
-        valid_dataloader = None
-
-    # Init Train Status
-    if checkpoint_filepath:
-        checkpoint = load_checkpoint(pathlib.Path(checkpoint_filepath), checkpoint_name)
-    else:
-        checkpoint = None
-
-    if checkpoint is None:
-        task.logger.info(f'-> Train from scratch.')
-        start_position = 0
-    else:
-        task.logger.info(f'-> Train from checkpoint [\'{checkpoint_filepath}\'] [Epoch/Step]@[{checkpoint["Epoch"]}/{checkpoint["Step"]}].')
-
-        if reset_optimizer:
-            task.logger.info(f'   Reset Optimizer.')
-        else:
-            task.optimizer.load_state_dict(checkpoint['optimizer_state'])
-
-        task.logger.info(f'    v Loading Parameters ...')
-        task.model.load_state_dict(checkpoint['model_state'])
-        task.logger.info(f'    ^ Loaded.')
-
-        if reset_period:
-            task.logger.info(f'   Reset Epoch & Step.')
-            start_position = 0
-        else:
-            start_position = checkpoint['Step']
-
-    task.logger.info(f'-> Training Start ...')
-    task.logger.info(f'   Train Life Cycle: Total {life_cycle} Epochs!')
-    task.logger.info(f'   Update every {update_period} Step;')
-    task.logger.info(f'   Report every {report_period} Step;')
-    task.logger.info(f'   Validate every {valid_period} Step;')
-    task.logger.info(f'   Save checkpoint every {train_period} Step.')
-
-    task.model.train()
-    task.optimizer.zero_grad()
-    epoch = 0
-    step = start_position
-    while epoch < life_cycle:
-        if is_distribution:
-            train_sampler.set_epoch(epoch)
-
-        tic = time.time()
-        for minibatch in train_dataloader:
-            (loss, logs) = task.train(minibatch)
-
-            # Report Metrics
-            if step % report_period == 0:
-                metrics = dict()
-                for log_key, (log_value, log_format) in logs.items():
-                    if is_distribution:
-                        distributed.all_reduce(log_value, op = distributed.ReduceOp.SUM)
-                        log_value = log_value / world_size
-                    metrics[log_key] = log_format(float(log_value))
-                task.logger.info(f'   [Epoch/Step]@[{epoch}/{step}] - {get_logging_metrics_str(metrics)}')
-
-            # Update Model Parameters
-            if step % update_period == 0:
-                retain_graph = False
-                task.optimizer.step()
-                task.optimizer.zero_grad()
-            else:
-                retain_graph = True
-            loss.backward(retain_graph=retain_graph)
-
-            # Save Model Parameters
-            if step % train_period == 0 and is_master:
-                task.logger.info('-> Saving checkpoint ...')
-                tic = time.time()
-                task.save(mode='Train', checkpoint_path=checkpoint_dirpath, checkpoint_name=checkpoint_name, keep_number=keep_number)
-                toc = time.time()
-                task.logger.info(f'-> Checkpoint is saved to \'{checkpoint_dirpath}\' at [Epoch/Step][{epoch}/{step}] (Time Cost: {toc-tic:.2f}s)')        
-
-            # Do Validation
-            if step % valid_period == 0:
-                if is_distribution:
-                    distributed.barrier()
-                if is_master:
-                    if valid_dataloader:
-                        task.model.eval()
-                        exact_eval(
-                            task,
-                            valid_dataloader, 
-                            'Valid',
-                        )
-                        task.save(mode='Valid', checkpoint_path=checkpoint_dirpath, checkpoint_name=checkpoint_name, keep_number=keep_number)
-                        task.model.train()
-                if is_distribution:
-                    distributed.barrier()
-
-            if task.done:
-                task.logger.info(f'-> [Inner Epoch] The termination condition is triggered, stopping the current training process.')
-                break
-
-            step += 1
-            task.update_status(stage='Step', step=step, epoch=epoch, loss=loss)
-
-        if task.done:
-            task.logger.info(f'-> [Inter Epoch] The termination condition is triggered, stopping the current training process.')
-            break
-
-        toc = time.time()
-        task.logger.info(f'-> Epoch@{epoch} Finished. Time Cost = {toc-tic:.2f}s')
-
-        epoch += 1
-        task.update_status(stage='Epoch', step=step, epoch=epoch, loss=loss)
-
-    if is_distribution:
-        distributed.destroy_process_group()
+    train_period: int = Field(1000, ge=1, description="Period (in steps) to save the model parameters.")
+    valid_period: int = Field(1000, ge=1, description="Period (in steps) to validate the model.")
+    train_batch_size: int = Field(32, ge=1, description="Batch size for training.")
+    valid_batch_size: int = Field(32, ge=1, description="Batch size for validation.")
 
 
-def train(
-    configuration_filepath: pathlib.Path,
+class DistributedTrainer(BaseEngine[DistributedTrainerOptions]):
+    _options_ = DistributedTrainerOptions
 
-    checkpoint_dirpath: pathlib.Path, checkpoint_name: str = 'checkpoint', keep_number: int = 50,
+    def __init__(
+        self,
+        configuration: dict,
+        model: torch.nn.Module, optimizer: torch.optim.Optimizer, scheduler: torch.optim.lr_scheduler.LRScheduler,
+        train_dataset: torch.utils.data.Dataset, valid_dataset: torch.utils.data.Dataset,
+    ):
+        super().__init__(configuration)
+        self.model = model
+        self.optimizer = optimizer
+        self.scheduler = scheduler
+        self.train_dataset = train_dataset
+        self.valid_dataset = valid_dataset
+        self.position = 0
 
-    train_batch_size: int = 32, valid_batch_size: int = 32, shuffle: bool = True,
+    def run(self):
+        master_rank = self.options.master_rank
+        master_addr = self.options.master_addr
+        master_port = self.options.master_port
 
-    checkpoint_filepath: str | None = None, reset_optimizer: bool = True, reset_period: bool = True,
+        os.environ['MASTER_ADDR'] = master_addr
+        os.environ['MASTER_PORT'] = master_port
 
-    life_cycle: int = 100, report_period: int = 100, update_period: int = 1, train_period: int = 1000, valid_period: int = 1000,
-
-    device: Literal['CPU', 'GPU'] = 'GPU',
-
-    world_size: int = 1, master_addr: str = 'localhost', master_port: str = '16161', master_rank: int = 0,
-
-    seed: int = 1234, make_deterministic: bool = False,
-):
-    assert task_name in standard_task_builders, f'Standard Task ({task_name}) is not Defined'
-
-    configuration = load_toml(configuration_filepath)
-    task: StandardTask = standard_task_builders[task_name](configuration)
-
-    task.logger.info(f'-> Task: \'{task_name}\' | Configuration Loaded From {configuration_filepath}')
-
-    task.logger.info(f'-> Preparing Datasets ...')
-
-    task.logger.info(f'   Dataset Split Sizes:')
-    task.logger.info(f'    * Train - {len(task.train_dataset)}')
-    if task.valid_dataset:
-        task.logger.info(f'    * Valid - {len(task.valid_dataset)}')
-    else:
-        task.logger.info(f'    * Valid - Not Provided')
-
-    assert device in {'CPU', 'GPU'}
-    if device == 'CPU':
-        is_distribution = False
-    if device == 'GPU':
+        world_size = self.options['world_size']
         assert torch.cuda.device_count() >= world_size, f'Insufficient GPU: {torch.cuda.device_count()}'
         assert master_rank < world_size, f'Wrong Master Rank: {master_rank}'
-        is_distribution = False if world_size == 1 else True
 
-    os.environ['MASTER_ADDR'] = master_addr
-    os.environ['MASTER_PORT'] = master_port
-    torch.multiprocessing.spawn(
-        exact_train,
-        args=(
-            is_distribution, master_rank, world_size, seed, make_deterministic,
+        logger.info(f'-> Distributed training - Total {world_size} GPU used.')
 
-            task,
+        if self.options.checkpoint_load_dirpath is None:
+            logger.info(f'-> Train from scratch.')
+        else:
+            checkpoint = load_checkpoint(
+                pathlib.Path(self.options.checkpoint_load_dirpath),
+                self.options.checkpoint_basename,
+                self.options.checkpoint_load_number,
+                self.options.checkpoint_load_metric
+            )
 
-            checkpoint_dirpath, checkpoint_name, keep_number,
+            logger.info(f'-> Train from [Epoch/Step]@[{checkpoint["Epoch"]}/{checkpoint["Step"]}].')
 
-            train_batch_size, valid_batch_size, shuffle,
+            if self.options.reset_iteration:
+                logger.info(f'   Reset Epoch & Step.')
+            else:
+                self.position = checkpoint['Step']
 
-            checkpoint_filepath, reset_optimizer, reset_period,
+            if self.options.reset_optimizer:
+                logger.info(f'   Reset Optimizer.')
+            else:
+                self.optimizer.load_state_dict(checkpoint['optimizer_state'])
 
-            life_cycle, report_period, update_period, train_period, valid_period,
+            if self.options.reset_scheduler:
+                logger.info(f'   Reset Scheduler.')
+            else:
+                self.scheduler.load_state_dict(checkpoint['scheduler_state'])
 
-            device,
-        ),
-        nprocs=world_size,
-        join=True
-    )
+            logger.info(f'    v Loading Parameters ...')
+            self.model.load_state_dict(checkpoint['model_state'])
+            logger.info(f'    ^ Loaded.')
+
+        create_dir(self.options.checkpoint_save_dirpath)
+        logger.info(f'-> Checkpoints will be saved into: \'{self.options.checkpoint_save_dirpath}\'')
+
+        logger.info(f'-> Training Start ...')
+        logger.info(f'   Train Life Cycle: Total {self.options.life_cycle} Epochs!')
+        logger.info(f'   Report every {self.options.report_period} Step;')
+        logger.info(f'   Update every {self.options.update_period} Step;')
+        logger.info(f'   Save CPT every {self.options.train_period} Step;')
+        logger.info(f'   Validate every {self.options.valid_period} Step.')
+
+        torch.multiprocessing.spawn(self.train, args=(), nprocs=world_size, join=True)
+
+    def train(self, rank: int):
+        equip_logger(self.options.logging_filepath)
+
+        make_reproducible(self.options.seed)
+        torch.autograd.set_detect_anomaly(True)
+
+        device_descriptor = get_device_descriptor('GPU', rank)
+        self.model.to(device=device_descriptor)
+        logger.info(f'-> Process {rank} Use Device \'{device_descriptor}\'')
+
+        if rank == self.options.master_rank:
+            logger.disabled = False
+        else:
+            logger.disabled = True
+
+        checkpoint_save_number = self.options.checkpoint_save_number
+        checkpoint_save_metric = self.options.checkpoint_save_metric
+
+        distributed.init_process_group('nccl', rank=rank, world_size=self.options.world_size)
+        model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[rank], find_unused_parameters=False)
+
+        train_sampler = DistributedSampler(self.train_dataset, num_replicas=world_size, rank=rank, shuffle=shuffle, seed=seed, drop_last=True)
+        train_dataloader = DataLoader(self.train_dataset, batch_size=train_batch_size, sampler=train_sampler)
+
+        # Validation Dataset
+        if task.valid_dataset:
+            valid_dataloader = DataLoader(task.valid_dataset, batch_size=valid_batch_size, shuffle=False)
+        else:
+            valid_dataloader = None
+
+        task.model.train()
+        task.optimizer.zero_grad()
+        epoch = 0
+        step = start_position
+        while epoch < life_cycle:
+            if is_distribution:
+                train_sampler.set_epoch(epoch)
+
+            tic = time.time()
+            for minibatch in train_dataloader:
+                (loss, logs) = task.train(minibatch)
+
+                # Report Metrics
+                if step % report_period == 0:
+                    metrics = dict()
+                    for log_key, (log_value, log_format) in logs.items():
+                        if is_distribution:
+                            distributed.all_reduce(log_value, op = distributed.ReduceOp.SUM)
+                            log_value = log_value / world_size
+                        metrics[log_key] = log_format(float(log_value))
+                    task.logger.info(f'   [Epoch/Step]@[{epoch}/{step}] - {get_logging_metrics_str(metrics)}')
+
+                # Update Model Parameters
+                if step % update_period == 0:
+                    retain_graph = False
+                    task.optimizer.step()
+                    task.optimizer.zero_grad()
+                else:
+                    retain_graph = True
+                loss.backward(retain_graph=retain_graph)
+
+                # Save Model Parameters
+                if step % train_period == 0 and is_master:
+                    task.logger.info('-> Saving checkpoint ...')
+                    tic = time.time()
+                    task.save(mode='Train', checkpoint_path=checkpoint_dirpath, checkpoint_name=checkpoint_name, keep_number=keep_number)
+                    toc = time.time()
+                    task.logger.info(f'-> Checkpoint is saved to \'{checkpoint_dirpath}\' at [Epoch/Step][{epoch}/{step}] (Time Cost: {toc-tic:.2f}s)')        
+
+                # Do Validation
+                if step % valid_period == 0:
+                    if is_distribution:
+                        distributed.barrier()
+                    if is_master:
+                        if valid_dataloader:
+                            task.model.eval()
+                            exact_eval(
+                                task,
+                                valid_dataloader, 
+                                'Valid',
+                            )
+                            task.save(mode='Valid', checkpoint_path=checkpoint_dirpath, checkpoint_name=checkpoint_name, keep_number=keep_number)
+                            task.model.train()
+                    if is_distribution:
+                        distributed.barrier()
+
+                if task.done:
+                    task.logger.info(f'-> [Inner Epoch] The termination condition is triggered, stopping the current training process.')
+                    break
+
+                step += 1
+                task.update_status(stage='Step', step=step, epoch=epoch, loss=loss)
+
+            if task.done:
+                task.logger.info(f'-> [Inter Epoch] The termination condition is triggered, stopping the current training process.')
+                break
+
+            toc = time.time()
+            task.logger.info(f'-> Epoch@{epoch} Finished. Time Cost = {toc-tic:.2f}s')
+
+            epoch += 1
+            task.update_status(stage='Epoch', step=step, epoch=epoch, loss=loss)
+
+        if is_distribution:
+            distributed.destroy_process_group()

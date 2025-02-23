@@ -6,7 +6,7 @@
 # Author: Jason Young (杨郑鑫).
 # E-Mail: AI.Jason.Young@outlook.com
 # Last Modified by: Jason Young (杨郑鑫)
-# Last Modified time: 2025-02-21 14:57:18
+# Last Modified time: 2025-02-23 22:53:52
 # Copyright (c) 2024 Yangs.AI
 # 
 # This source code is licensed under the Apache License 2.0 found in the
@@ -31,7 +31,7 @@ from torch_geometric.loader import DataLoader
 from younger.commons.io import create_dir, load_toml
 
 from younger_apps_dl.commons.utils import get_model_parameters_number, get_device_descriptor, get_logging_metrics_str, fix_random_procedure, set_deterministic
-from younger_apps_dl.commons.logging import equip_logger
+from younger_apps_dl.commons.logging import equip_logger, logger
 
 from younger_apps_dl.engines import BaseEngine
 from younger_apps_dl.engines.evaluators import StandardEvaluator
@@ -126,34 +126,29 @@ class StandardTrainerOptions(BaseModel):
 
 class StandardTrainer(BaseEngine):
     _options_ = StandardTrainerOptions
-    def __init__(self, configuration, logger, train_dataset, valid_dataset):
+    def __init__(self, configuration: dict, model: torch.nn.Module, train_dataset, valid_dataset):
         super().__init__(configuration)
+        self.model = model
+        self.train_dataset = train_dataset
+        self.valid_dataset = valid_dataset
 
     def run(self):
         pass
 
     def train(self):
         logger = equip_logger(self.options.logging_filepath)
-        device_descriptor = get_device_descriptor(device, rank)
-        fix_random_procedure(seed)
-        set_deterministic(make_deterministic)
 
-        task.clean()
-        task.to(device_descriptor)
-        task.logger.info(f'-> Device \'{device_descriptor}\' Used')
+        device_descriptor = get_device_descriptor(self.options.device, self.options.rank)
+        fix_random_procedure(self.options.seed)
+        set_deterministic(self.options.make_deterministic)
 
-        is_master = rank == master_rank
+        self.model.to(device_descriptor)
+        logger.info(f'-> Device \'{device_descriptor}\' Used')
+
         torch.autograd.set_detect_anomaly(True)
 
-        if is_master:
-            task.logger.disabled = False
-        else:
-            task.logger.disabled = True
-
-        task.logger.info(f'   Distribution: {is_distribution};{f" (Total {world_size} GPU)" if is_distribution else ""}')
-
-        create_dir(checkpoint_dirpath)
-        task.logger.info(f'-> Checkpoints will be saved into: \'{checkpoint_dirpath}\'')
+        create_dir(self.options.checkpoint_dirpath)
+        logger.info(f'-> Checkpoints will be saved into: \'{checkpoint_dirpath}\'')
 
         # Build Model
         task.logger.info(f'-> Preparing Model ...')

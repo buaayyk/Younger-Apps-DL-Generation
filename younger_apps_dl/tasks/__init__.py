@@ -6,7 +6,7 @@
 # Author: Jason Young (杨郑鑫).
 # E-Mail: AI.Jason.Young@outlook.com
 # Last Modified by: Jason Young (杨郑鑫)
-# Last Modified time: 2025-02-21 13:23:23
+# Last Modified time: 2025-02-23 16:45:18
 # Copyright (c) 2024 - 2025 Yangs.AI
 # 
 # This source code is licensed under the Apache License 2.0 found in the
@@ -19,10 +19,10 @@ from typing import Literal, Type
 
 from younger.commons.logging import Logger
 
-from younger_apps_dl.commons.mixins.options import OptionsMixin
+from younger_apps_dl.commons.mixins.options import OptionsMixin, OptionsType
 
 
-class BaseTask(OptionsMixin, ABC):
+class BaseTask(OptionsMixin[OptionsType], ABC):
     def __init__(self, configuration: dict) -> None:
         super().__init__(configuration)
 

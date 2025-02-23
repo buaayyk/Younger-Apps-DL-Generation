@@ -6,7 +6,7 @@
 # Author: Jason Young (杨郑鑫).
 # E-Mail: AI.Jason.Young@outlook.com
 # Last Modified by: Jason Young (杨郑鑫)
-# Last Modified time: 2025-02-21 12:59:44
+# Last Modified time: 2025-02-23 16:29:37
 # Copyright (c) 2025 Yangs.AI
 # 
 # This source code is licensed under the Apache License 2.0 found in the
@@ -14,12 +14,14 @@
 ########################################################################
 
 
-from typing import Type
+from typing import Type, TypeVar, Generic
 from pydantic import BaseModel, ValidationError
 
 
-class OptionsMixin(object):
-    _options_: Type[BaseModel] = None
+OptionsType = TypeVar('T', bound=BaseModel)
+
+class OptionsMixin(Generic[OptionsType]):
+    _options_: Type[OptionsType] = None
 
     def __init__(self, **options):
         if self.__class__._options_ is None:
@@ -32,5 +34,5 @@ class OptionsMixin(object):
         super().__init__()
 
     @property
-    def options(self) -> BaseModel:
+    def options(self) -> OptionsType:
         return self._options

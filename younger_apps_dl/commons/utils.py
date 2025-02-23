@@ -6,7 +6,7 @@
 # Author: Jason Young (杨郑鑫).
 # E-Mail: AI.Jason.Young@outlook.com
 # Last Modified by: Jason Young (杨郑鑫)
-# Last Modified time: 2025-01-14 10:05:00
+# Last Modified time: 2025-02-23 16:41:29
 # Copyright (c) 2025 Yangs.AI
 # 
 # This source code is licensed under the Apache License 2.0 found in the
@@ -24,19 +24,14 @@ import pathlib
 from typing import Any, Literal, Iterable
 
 
-def set_deterministic(make_deterministic: bool = True):
-    if make_deterministic:
-        torch.use_deterministic_algorithms(True)
-
-
-def shuffled(sequence: Iterable) -> Iterable:
+def shuffle_sequence(sequence: Iterable) -> Iterable:
     indices = list(range(len(sequence)))
     random.shuffle(indices)
     shuffled_sequence = ( sequence[index] for index in indices )
     return shuffled_sequence
 
 
-def fix_random_procedure(seed: int):
+def make_reproducible(seed: int = 3407, mode: bool = True):
     assert 0 < seed, 'Seed must > 0 .'
 
     random.seed(seed)
@@ -46,6 +41,7 @@ def fix_random_procedure(seed: int):
     torch.cuda.manual_seed_all(seed)
     torch.backends.cudnn.benchmark = False
     torch.backends.cudnn.deterministic = True
+    torch.use_deterministic_algorithms(mode)
 
 
 def get_logging_metrics_str(metrics: dict[str, str]) -> str:
@@ -75,10 +71,10 @@ def get_device_descriptor(device: Literal['CPU', 'GPU'], index: int) -> torch.de
     return torch.device(device_name)
 
 
-def find_all_checkpoints(checkpoint_dirpath: pathlib.Path, checkpoint_name: str = 'checkpoint') -> dict[int, pathlib.Path]:
-    checkpoint_filename_pattern = re.compile(f'{checkpoint_name}_Epoch_(?:\d+)_Step_(\d+)\.cp')
+def find_all_checkpoints(dirpath: pathlib.Path, basename: str = 'checkpoint', number: int = 1, metric: str | None = None) -> dict[int, pathlib.Path]:
+    checkpoint_filename_pattern = re.compile(f'{basename}_Epoch_(?:\d+)_Step_(\d+)\.cp')
     checkpoints = dict()
-    for path in checkpoint_dirpath.iterdir():
+    for path in dirpath.iterdir():
         if path.is_file():
             result = checkpoint_filename_pattern.fullmatch(path.name)
             if result is not None:
@@ -92,14 +88,14 @@ def find_all_checkpoints(checkpoint_dirpath: pathlib.Path, checkpoint_name: str 
     return checkpoints
 
 
-def load_checkpoint(checkpoint_path: pathlib.Path, checkpoint_name: str = 'checkpoint') -> dict[str, Any] | None:
+def load_checkpoint(load_path: pathlib.Path, basename: str = 'checkpoint', number: int = 1, metric: str | None = None) -> dict[str, Any] | None:
     checkpoint = None
-    if checkpoint_path.is_file():
-        checkpoint = torch.load(checkpoint_path, map_location=torch.device('cpu'))
+    if load_path.is_file():
+        checkpoint = torch.load(load_path, map_location=torch.device('cpu'))
 
-    if checkpoint_path.is_dir():
-        assert len(checkpoint_name) != 0, f'Invalid checkpoint name.'
-        checkpoints = find_all_checkpoints(checkpoint_path, checkpoint_name)
+    if load_path.is_dir():
+        assert len(basename) != 0, f'Invalid checkpoint name.'
+        checkpoints = find_all_checkpoints(load_path, basename, number, metric)
 
         if len(checkpoints) == 0:
             latest_checkpoint = None
@@ -117,7 +113,7 @@ def load_checkpoint(checkpoint_path: pathlib.Path, checkpoint_name: str = 'check
     return checkpoint
 
 
-def save_checkpoint(checkpoint, checkpoint_path: pathlib.Path, checkpoint_name: str = 'checkpoint', keep_number: int = 1):
+def save_checkpoint(checkpoint, save_path: pathlib.Path, basename: str = 'checkpoint', number: int = 1, metric: str | None = None):
     if checkpoint_path.is_dir():
         assert len(checkpoint_name) != 0, f'Invalid checkpoint name.'
         position = checkpoint['Step']

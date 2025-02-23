@@ -6,7 +6,7 @@
 # Author: Jason Young (杨郑鑫).
 # E-Mail: AI.Jason.Young@outlook.com
 # Last Modified by: Jason Young (杨郑鑫)
-# Last Modified time: 2025-01-16 11:12:53
+# Last Modified time: 2025-02-23 22:54:09
 # Copyright (c) 2025 Yangs.AI
 # 
 # This source code is licensed under the Apache License 2.0 found in the
@@ -140,6 +140,35 @@ class BaseTask(object):
         assert stage in {'Step', 'Epoch'}, f'Only Support \'Step\' or \'Epoch\''
         self._epoch = epoch
         self._step = step
+
+    # Build Model
+    logger.info(f'-> Preparing Model ...')
+
+    # Print Model
+    task.logger.info(f'-> Model Specs:')
+    parameters_number = get_model_parameters_number(task.model)
+    parameters_number_str = str()
+    for name, number in parameters_number.items():
+        parameters_number_str += f'{name}: {number} Elements ;\n'
+    parameters_number_str += f'Total: {sum(parameters_number.values())} Elements .\n'
+    task.logger.info(
+        f'\n======= v Model Architecture v ======='
+        f'\n{task.model}'
+        f'\n'
+        f'\n====== v Number of Parameters v ======'
+        f'\n{parameters_number_str}'
+    )
+
+
+    task.logger.info(f'-> Preparing Datasets ...')
+
+    task.logger.info(f'   Dataset Split Sizes:')
+    task.logger.info(f'    * Train - {len(task.train_dataset)}')
+    if task.valid_dataset:
+        task.logger.info(f'    * Valid - {len(task.valid_dataset)}')
+    else:
+        task.logger.info(f'    * Valid - Not Provided')
+
 
 
     checkpoint = dict()
