@@ -6,7 +6,7 @@
 # Author: Jason Young (杨郑鑫).
 # E-Mail: AI.Jason.Young@outlook.com
 # Last Modified by: Jason Young (杨郑鑫)
-# Last Modified time: 2025-02-23 16:41:29
+# Last Modified time: 2025-02-24 15:47:05
 # Copyright (c) 2025 Yangs.AI
 # 
 # This source code is licensed under the Apache License 2.0 found in the
@@ -14,12 +14,9 @@
 ########################################################################
 
 
-import os
-import re
 import torch
 import numpy
 import random
-import pathlib
 
 from typing import Any, Literal, Iterable
 
@@ -71,70 +68,20 @@ def get_device_descriptor(device: Literal['CPU', 'GPU'], index: int) -> torch.de
     return torch.device(device_name)
 
 
-def find_all_checkpoints(dirpath: pathlib.Path, basename: str = 'checkpoint', number: int = 1, metric: str | None = None) -> dict[int, pathlib.Path]:
-    checkpoint_filename_pattern = re.compile(f'{basename}_Epoch_(?:\d+)_Step_(\d+)\.cp')
-    checkpoints = dict()
-    for path in dirpath.iterdir():
-        if path.is_file():
-            result = checkpoint_filename_pattern.fullmatch(path.name)
-            if result is not None:
-                position = int(result.group(1))
-                checkpoints[position] = path
-            else:
-                continue
-        else:
-            continue
-
-    return checkpoints
-
-
-def load_checkpoint(load_path: pathlib.Path, basename: str = 'checkpoint', number: int = 1, metric: str | None = None) -> dict[str, Any] | None:
-    checkpoint = None
-    if load_path.is_file():
-        checkpoint = torch.load(load_path, map_location=torch.device('cpu'))
-
-    if load_path.is_dir():
-        assert len(basename) != 0, f'Invalid checkpoint name.'
-        checkpoints = find_all_checkpoints(load_path, basename, number, metric)
-
-        if len(checkpoints) == 0:
-            latest_checkpoint = None
-        else:
-            max_position = max(checkpoints.keys())
-            latest_checkpoint_path = checkpoints[max_position]
-            if latest_checkpoint_path.is_file():
-                latest_checkpoint = torch.load(latest_checkpoint_path, map_location=torch.device('cpu'))
-                assert max_position == latest_checkpoint['Step'], 'An Error occurred when loading checkpoint.'
-            else:
-                latest_checkpoint = None
-
-        checkpoint = latest_checkpoint
-
-    return checkpoint
-
-
-def save_checkpoint(checkpoint, save_path: pathlib.Path, basename: str = 'checkpoint', number: int = 1, metric: str | None = None):
-    if checkpoint_path.is_dir():
-        assert len(checkpoint_name) != 0, f'Invalid checkpoint name.'
-        position = checkpoint['Step']
-        checkpoint_filename = f'{checkpoint_name}_Epoch_{checkpoint["Epoch"]}_Step_{checkpoint["Step"]}.cp'
-        checkpoint_filepath = checkpoint_path.joinpath(checkpoint_filename)
-        torch.save(checkpoint, checkpoint_filepath)
-
-        checkpoints = find_all_checkpoints(checkpoint_path, checkpoint_name)
-        positions = sorted(list(checkpoints.keys()), reverse=True)
-        for position in positions[keep_number:]:
-            remove_checkpoint(checkpoints[position])
+def average_model_state_dict(model_state_dicts: list[dict], weights: list[float] | None = None) -> dict:
+    if weights is None:
+        weights = [1.0 / len(model_state_dicts)] * len(model_state_dicts)
     else:
-        checkpoint_filepath = checkpoint_path
-        torch.save(checkpoint, checkpoint_filepath)
+        assert len(model_state_dicts) == len(weights)
 
-
-def remove_checkpoint(checkpoint_path: pathlib.Path):
-    if os.path.isfile(checkpoint_path):
-        os.remove(checkpoint_path)
-    else:
-        raise IOError(f'Invalid address: {checkpoint_path}')
+    final_state_dict = dict()
+    for model_state_dict, weight in zip(model_state_dicts, weights):
+        for key, value in model_state_dict.items():
+            if key in final_state_dict:
+                final_state_dict[key] += value * weight
+            else:
+                final_state_dict[key] = value * weight
+    return final_state_dict
 
 
 # def save_operator_embedding(save_dirpath: pathlib.Path, weights: NDArray, op_dict: dict[str, int]):

@@ -6,7 +6,7 @@
 # Author: Jason Young (杨郑鑫).
 # E-Mail: AI.Jason.Young@outlook.com
 # Last Modified by: Jason Young (杨郑鑫)
-# Last Modified time: 2025-02-23 22:55:42
+# Last Modified time: 2025-02-24 16:32:30
 # Copyright (c) 2024 Yangs.AI
 # 
 # This source code is licensed under the Apache License 2.0 found in the
@@ -21,17 +21,17 @@ import torch
 import pathlib
 
 from torch import distributed
-from typing import Literal
+from typing import Any, Literal, Callable
 from pydantic import BaseModel, Field
 
 from torch.utils.data.distributed import DistributedSampler
 from torch.utils.data import Dataset, RandomSampler
-from torch_geometric.loader import DataLoader
 
 from younger.commons.io import create_dir, load_toml
 
+from younger_apps_dl.commons.utils import get_model_parameters_number, get_device_descriptor, get_logging_metrics_str, make_reproducible
 from younger_apps_dl.commons.logging import logger, equip_logger
-from younger_apps_dl.commons.utils import load_checkpoint, save_checkpoint, get_model_parameters_number, get_device_descriptor, get_logging_metrics_str, make_reproducible
+from younger_apps_dl.commons.checkpoint import load_checkpoint, save_checkpoint
 
 from younger_apps_dl.engines import BaseEngine
 
@@ -44,22 +44,15 @@ class DistributedTrainerOptions(BaseModel):
     master_addr: str = Field('localhost', description="Master address for distributed training.")
     master_port: str = Field('16161', description="Master port for distributed training.")
     master_rank: int = Field(0, ge=0, description="Master rank for distributed training. It should be < world_size and >= 0.")
-    world_size: int = Field(2, gt=1, description="Number of devices participating in distributed training. It should be > 1.")
+    node_number: int = Field(2, gt=1, description="Number of devices participating in distributed training. It should be > 1.")
 
     # Checkpoint Options
+    checkpoint_savepath: str = Field(..., description="Directory path to save checkpoint.")
     checkpoint_basename: str = Field('checkpoint', description="Base name of the checkpoint for save/load.")
+    checkpoint_keepdisk: int = Field(5, ge=1, description="Number of checkpoints to keep on disk.")
 
-    ## Save
-    checkpoint_save_dirpath: str | None = Field(None, description="Directory path for saving checkpoints.")
-    checkpoint_save_number: int = Field(5, ge=1, description="Number of checkpoints to save on disk.")
-    checkpoint_save_metric: str | None = Field(None, description="Metric name for sorting the checkpoints. If None, it will use the latest N checkpoints.")
-
-    ## Load
-    checkpoint_load_dirpath: str | None = Field(None, description="Directory path for loading checkpoints.")
-    checkpoint_load_number: int = Field(5, ge=1, description="Number of checkpoints to load from disk.")
-    checkpoint_load_metric: str | None = Field(None, description="Metric name for sorting the checkpoints. If None, it will use the latest N checkpoints.")
-
-    ## Reset
+    ## Resume Options
+    resume_loadpath: str  = Field('', description="Path to load checkpoint. If "", train from scratch.")
     reset_iteration: bool = Field(True, description="Whether to reset the iteration status (epoch, step) when loading a checkpoint.")
     reset_optimizer: bool = Field(True, description="Whether to reset the optimizer when loading a checkpoint.")
     reset_scheduler: bool = Field(True, description="Whether to reset the scheduler when loading a checkpoint.")
@@ -86,45 +79,64 @@ class DistributedTrainer(BaseEngine[DistributedTrainerOptions]):
         configuration: dict,
         model: torch.nn.Module, optimizer: torch.optim.Optimizer, scheduler: torch.optim.lr_scheduler.LRScheduler,
         train_dataset: torch.utils.data.Dataset, valid_dataset: torch.utils.data.Dataset,
+        execution: Callable[[Any], tuple[torch.Tensor, dict]],
+        data_loader_type: Literal['pth', 'pyg'] = 'pth',
     ):
+        """
+        _summary_
+
+        :param configuration: _description_
+        :type configuration: dict
+        :param model: _description_
+        :type model: torch.nn.Module
+        :param optimizer: _description_
+        :type optimizer: torch.optim.Optimizer
+        :param scheduler: _description_
+        :type scheduler: torch.optim.lr_scheduler.LRScheduler
+        :param train_dataset: _description_
+        :type train_dataset: torch.utils.data.Dataset
+        :param valid_dataset: _description_
+        :type valid_dataset: torch.utils.data.Dataset
+        :param execution: A callable that defines how to process a batch of data during training, feeding it to the model and returning the computed loss and logs.
+        :type execution: Callable
+        """
         super().__init__(configuration)
         self.model = model
         self.optimizer = optimizer
         self.scheduler = scheduler
         self.train_dataset = train_dataset
         self.valid_dataset = valid_dataset
-        self.position = 0
+        self.execution = execution
+        self.data_loader_type = data_loader_type
+        self.epoch = 0
+        self.step = 0
 
     def run(self):
         master_rank = self.options.master_rank
         master_addr = self.options.master_addr
         master_port = self.options.master_port
+        node_number = self.options.node_number
 
         os.environ['MASTER_ADDR'] = master_addr
         os.environ['MASTER_PORT'] = master_port
 
-        world_size = self.options['world_size']
-        assert torch.cuda.device_count() >= world_size, f'Insufficient GPU: {torch.cuda.device_count()}'
-        assert master_rank < world_size, f'Wrong Master Rank: {master_rank}'
+        assert torch.cuda.device_count() >= node_number, f'Insufficient GPU: {torch.cuda.device_count()}'
+        assert master_rank < node_number, f'Wrong Master Rank: {master_rank}'
 
-        logger.info(f'-> Distributed training - Total {world_size} GPU used.')
+        logger.info(f'-> Distributed training - Total {node_number} GPU used.')
 
-        if self.options.checkpoint_load_dirpath is None:
+        if len(self.options.resume_filepath) == 0:
             logger.info(f'-> Train from scratch.')
         else:
-            checkpoint = load_checkpoint(
-                pathlib.Path(self.options.checkpoint_load_dirpath),
-                self.options.checkpoint_basename,
-                self.options.checkpoint_load_number,
-                self.options.checkpoint_load_metric
-            )
+            checkpoint = load_checkpoint(pathlib.Path(self.options.resume_loadpath))
 
-            logger.info(f'-> Train from [Epoch/Step]@[{checkpoint["Epoch"]}/{checkpoint["Step"]}].')
+            logger.info(f'-> Train from [Epoch/Step]@[{checkpoint.epoch}/{checkpoint.step}].')
 
             if self.options.reset_iteration:
                 logger.info(f'   Reset Epoch & Step.')
             else:
-                self.position = checkpoint['Step']
+                self.epoch: int = checkpoint['epoch']
+                self.step: int = checkpoint['Step']
 
             if self.options.reset_optimizer:
                 logger.info(f'   Reset Optimizer.')
@@ -140,8 +152,8 @@ class DistributedTrainer(BaseEngine[DistributedTrainerOptions]):
             self.model.load_state_dict(checkpoint['model_state'])
             logger.info(f'    ^ Loaded.')
 
-        create_dir(self.options.checkpoint_save_dirpath)
-        logger.info(f'-> Checkpoints will be saved into: \'{self.options.checkpoint_save_dirpath}\'')
+        create_dir(self.options.checkpoint_savepath)
+        logger.info(f'-> Checkpoints will be saved into: \'{self.options.checkpoint_savepath}\'')
 
         logger.info(f'-> Training Start ...')
         logger.info(f'   Train Life Cycle: Total {self.options.life_cycle} Epochs!')
@@ -150,7 +162,7 @@ class DistributedTrainer(BaseEngine[DistributedTrainerOptions]):
         logger.info(f'   Save CPT every {self.options.train_period} Step;')
         logger.info(f'   Validate every {self.options.valid_period} Step.')
 
-        torch.multiprocessing.spawn(self.train, args=(), nprocs=world_size, join=True)
+        torch.multiprocessing.spawn(self.train, args=(), nprocs=node_number, join=True)
 
     def train(self, rank: int):
         equip_logger(self.options.logging_filepath)
@@ -167,35 +179,43 @@ class DistributedTrainer(BaseEngine[DistributedTrainerOptions]):
         else:
             logger.disabled = True
 
-        checkpoint_save_number = self.options.checkpoint_save_number
-        checkpoint_save_metric = self.options.checkpoint_save_metric
+        world_size = self.options.world_size
+        seed = self.options.seed
+        shuffle = self.options.shuffle
+        life_cycle = self.options.life_cycle
 
-        distributed.init_process_group('nccl', rank=rank, world_size=self.options.world_size)
-        model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[rank], find_unused_parameters=False)
+        report_period = self.options.report_period
+        update_period = self.options.update_period
 
-        train_sampler = DistributedSampler(self.train_dataset, num_replicas=world_size, rank=rank, shuffle=shuffle, seed=seed, drop_last=True)
+        train_period = self.options.train_period
+        valid_period = self.options.valid_period
+        train_batch_size = self.options.train_batch_size
+        valid_batch_size = self.options.valid_batch_size
+
+        distributed.init_process_group('nccl', rank=rank, world_size=world_size)
+        model = torch.nn.parallel.DistributedDataParallel(self.model, device_ids=[rank], find_unused_parameters=False)
+
+        train_sampler = DistributedSampler(self.train_dataset, rank=rank, num_replicas=world_size, seed=seed, shuffle=shuffle, drop_last=True)
+
+        if self.data_loader_type == 'pth':
+            from torch.utils.data import DataLoader
+        if self.data_loader_type == 'pyg':
+            from torch_geometric.loader import DataLoader
+
         train_dataloader = DataLoader(self.train_dataset, batch_size=train_batch_size, sampler=train_sampler)
+        valid_dataloader = DataLoader(self.valid_dataset, batch_size=valid_batch_size, shuffle=False)
 
-        # Validation Dataset
-        if task.valid_dataset:
-            valid_dataloader = DataLoader(task.valid_dataset, batch_size=valid_batch_size, shuffle=False)
-        else:
-            valid_dataloader = None
-
-        task.model.train()
-        task.optimizer.zero_grad()
-        epoch = 0
-        step = start_position
-        while epoch < life_cycle:
-            if is_distribution:
-                train_sampler.set_epoch(epoch)
+        model.train()
+        self.optimizer.zero_grad()
+        while self.epoch < life_cycle:
+            train_sampler.set_epoch(self.epoch)
 
             tic = time.time()
             for minibatch in train_dataloader:
-                (loss, logs) = task.train(minibatch)
+                (loss, logs) = self.execution(minibatch)
 
                 # Report Metrics
-                if step % report_period == 0:
+                if self.step % report_period == 0:
                     metrics = dict()
                     for log_key, (log_value, log_format) in logs.items():
                         if is_distribution:
