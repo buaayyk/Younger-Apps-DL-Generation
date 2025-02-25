@@ -6,7 +6,7 @@
 # Author: Jason Young (杨郑鑫).
 # E-Mail: AI.Jason.Young@outlook.com
 # Last Modified by: Jason Young (杨郑鑫)
-# Last Modified time: 2025-02-24 16:32:30
+# Last Modified time: 2025-02-25 09:54:54
 # Copyright (c) 2024 Yangs.AI
 # 
 # This source code is licensed under the Apache License 2.0 found in the
@@ -36,15 +36,9 @@ from younger_apps_dl.commons.checkpoint import load_checkpoint, save_checkpoint
 from younger_apps_dl.engines import BaseEngine
 
 
-class DistributedTrainerOptions(BaseModel):
+class StandardTrainerOptions(BaseModel):
     # Main Options
-    logging_filepath: str = Field('./default_distributed_trainer.log', description="Logging file path where logs will be saved, default to None, which may save to a default path that is determined by the Younger.")
-
-    # Distribution Options
-    master_addr: str = Field('localhost', description="Master address for distributed training.")
-    master_port: str = Field('16161', description="Master port for distributed training.")
-    master_rank: int = Field(0, ge=0, description="Master rank for distributed training. It should be < world_size and >= 0.")
-    node_number: int = Field(2, gt=1, description="Number of devices participating in distributed training. It should be > 1.")
+    logging_filepath: str = Field('./standard_trainer.log', description="Logging file path where logs will be saved, default to None, which may save to a default path that is determined by the Younger.")
 
     # Checkpoint Options
     checkpoint_savepath: str = Field(..., description="Directory path to save checkpoint.")
@@ -70,9 +64,16 @@ class DistributedTrainerOptions(BaseModel):
     train_batch_size: int = Field(32, ge=1, description="Batch size for training.")
     valid_batch_size: int = Field(32, ge=1, description="Batch size for validation.")
 
+    # Distribution Options
+    distributed: bool = Field(False, description="Whether to use distributed training. If False, the options about distributed training will take no effect.")
+    master_addr: str  = Field('localhost', description="Master address for distributed training.")
+    master_port: str  = Field('16161', description="Master port for distributed training.")
+    master_rank: int  = Field(0, ge=0, description="Master rank for distributed training. It should be < world_size and >= 0.")
+    node_number: int  = Field(2, gt=1, description="Number of devices participating in distributed training. It should be > 1.")
 
-class DistributedTrainer(BaseEngine[DistributedTrainerOptions]):
-    _options_ = DistributedTrainerOptions
+
+class StandardTrainer(BaseEngine[StandardTrainerOptions]):
+    _options_ = StandardTrainerOptions
 
     def __init__(
         self,
@@ -112,19 +113,6 @@ class DistributedTrainer(BaseEngine[DistributedTrainerOptions]):
         self.step = 0
 
     def run(self):
-        master_rank = self.options.master_rank
-        master_addr = self.options.master_addr
-        master_port = self.options.master_port
-        node_number = self.options.node_number
-
-        os.environ['MASTER_ADDR'] = master_addr
-        os.environ['MASTER_PORT'] = master_port
-
-        assert torch.cuda.device_count() >= node_number, f'Insufficient GPU: {torch.cuda.device_count()}'
-        assert master_rank < node_number, f'Wrong Master Rank: {master_rank}'
-
-        logger.info(f'-> Distributed training - Total {node_number} GPU used.')
-
         if len(self.options.resume_filepath) == 0:
             logger.info(f'-> Train from scratch.')
         else:
@@ -162,9 +150,25 @@ class DistributedTrainer(BaseEngine[DistributedTrainerOptions]):
         logger.info(f'   Save CPT every {self.options.train_period} Step;')
         logger.info(f'   Validate every {self.options.valid_period} Step.')
 
-        torch.multiprocessing.spawn(self.train, args=(), nprocs=node_number, join=True)
+        if self.options.distributed:
+            master_rank = self.options.master_rank
+            master_addr = self.options.master_addr
+            master_port = self.options.master_port
+            node_number = self.options.node_number
 
-    def train(self, rank: int):
+            os.environ['MASTER_ADDR'] = master_addr
+            os.environ['MASTER_PORT'] = master_port
+
+            assert torch.cuda.device_count() >= node_number, f'Insufficient GPU: {torch.cuda.device_count()}'
+            assert master_rank < node_number, f'Wrong Master Rank: {master_rank}'
+
+            logger.info(f'-> Distributed training - Total {node_number} GPU used.')
+
+            torch.multiprocessing.spawn(self.pile_train, args=(), nprocs=node_number, join=True)
+        else:
+            self.solo_train()
+
+    def pile_train(self, rank: int):
         equip_logger(self.options.logging_filepath)
 
         make_reproducible(self.options.seed)
@@ -277,3 +281,6 @@ class DistributedTrainer(BaseEngine[DistributedTrainerOptions]):
 
         if is_distribution:
             distributed.destroy_process_group()
+
+    def solo_train(self):
+        pass
