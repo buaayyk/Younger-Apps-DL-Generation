@@ -6,7 +6,7 @@
 # Author: Jason Young (杨郑鑫).
 # E-Mail: AI.Jason.Young@outlook.com
 # Last Modified by: Jason Young (杨郑鑫)
-# Last Modified time: 2025-02-23 22:54:09
+# Last Modified time: 2025-02-25 16:37:13
 # Copyright (c) 2025 Yangs.AI
 # 
 # This source code is licensed under the Apache License 2.0 found in the
@@ -177,3 +177,14 @@ class BaseTask(object):
     checkpoint['model_state'] = task.model.module.state_dict() if is_distribution else task.model.state_dict()
     checkpoint['optimizer_state'] = task.optimizer.state_dict()
     save_checkpoint(checkpoint, checkpoint_path=checkpoint_dirpath, checkpoint_name=checkpoint_name, keep_number=keep_number)
+
+            with tqdm.tqdm(total=len(dataloader)) as progress_bar:
+                for index, minibatch in enumerate(dataloader, start=1):
+                    eval_result = task.eval(minibatch)
+                    if eval_result is None:
+                        pass
+                    else:
+                        outputs, goldens = eval_result
+                        all_outputs.append(outputs)
+                        all_goldens.append(goldens)
+                    progress_bar.update(1)

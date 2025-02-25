@@ -6,7 +6,7 @@
 # Author: Jason Young (杨郑鑫).
 # E-Mail: AI.Jason.Young@outlook.com
 # Last Modified by: Jason Young (杨郑鑫)
-# Last Modified time: 2025-02-24 16:14:35
+# Last Modified time: 2025-02-25 10:17:18
 # Copyright (c) 2025 Yangs.AI
 # 
 # This source code is licensed under the Apache License 2.0 found in the
@@ -22,9 +22,10 @@ from typing import Literal
 
 
 class Checkpoint(object):
-    def __init__(self, epoch: int, step: int, model_state_dict: dict, optimizer_state_dict: dict, scheduler_state_dict: dict, metrics: dict[str, float]):
+    def __init__(self, epoch: int, step: int, itr: int, model_state_dict: dict, optimizer_state_dict: dict, scheduler_state_dict: dict, metrics: dict[str, float]):
         self._epoch = epoch
         self._step = step
+        self._itr = itr
         self._model_state_dict = model_state_dict 
         self._optimizer_state_dict = optimizer_state_dict
         self._scheduler_state_dict = scheduler_state_dict
@@ -37,6 +38,10 @@ class Checkpoint(object):
     @property
     def step(self) -> int:
         return self._step
+
+    @property
+    def itr(self) -> int:
+        return self._itr
 
     @property
     def model_state_dict(self) -> dict:
@@ -59,6 +64,7 @@ class Checkpoint(object):
         c = Checkpoint(
             d['epoch'],
             d['step'],
+            d['itr'],
             d['model_state_dict'],
             d['optimizer_state_dict'],
             d['scheduler_state_dict'],
@@ -71,6 +77,7 @@ class Checkpoint(object):
         c = dict(
             epoch = c._epoch,
             step = c._step,
+            itr = c._itr,
             model_state_dict = c._model_state_dict,
             optimizer_state_dict = c._optimizer_state_dict,
             scheduler_state_dict = c._scheduler_state_dict,
@@ -80,20 +87,21 @@ class Checkpoint(object):
 
 
 def retrieve_checkpoint_filepaths(dirpath: pathlib.Path, basename: str = 'checkpoint') -> dict[int, pathlib.Path]:
-    checkpoint_filename_pattern = re.compile(f'{basename}_Step_(\d+)\.cp')
+    checkpoint_filename_pattern = re.compile(f'{basename}_Itr_(\d+)\.cp')
     checkpoint_filepaths = dict()
     for path in dirpath.iterdir():
         if path.is_file():
             result = checkpoint_filename_pattern.fullmatch(path.name)
             if result is not None:
-                step = int(result.group(1))
-                checkpoint_filepaths[step] = path
+                itr = int(result.group(1))
+                checkpoint_filepaths[itr] = path
             else:
                 continue
         else:
             continue
 
     return checkpoint_filepaths
+
 
 def load_checkpoint(load_path: pathlib.Path, basename: str = 'checkpoint') -> Checkpoint | None:
     checkpoint = None
@@ -107,11 +115,11 @@ def load_checkpoint(load_path: pathlib.Path, basename: str = 'checkpoint') -> Ch
         if len(checkpoint_filepaths) == 0:
             checkpoint = None
         else:
-            step = max(checkpoint_filepaths.keys())
-            checkpoint_path = checkpoint_filepaths[step]
+            itr = max(checkpoint_filepaths.keys())
+            checkpoint_path = checkpoint_filepaths[itr]
             if checkpoint_path.is_file():
                 checkpoint = Checkpoint.load_dict(torch.load(checkpoint_path, map_location=torch.device('cpu')))
-                assert step == checkpoint.step, 'An error occurred when loading checkpoint.'
+                assert itr == checkpoint.itr, 'An error occurred when loading checkpoint.'
             else:
                 checkpoint = None
 
@@ -121,14 +129,14 @@ def load_checkpoint(load_path: pathlib.Path, basename: str = 'checkpoint') -> Ch
 def save_checkpoint(checkpoint: Checkpoint, save_path: pathlib.Path, basename: str = 'checkpoint', keep_number: int = 1) -> None:
     if save_path.is_dir():
         assert len(basename) != 0, f'Invalid checkpoint name.'
-        checkpoint_filename = f'{basename}_Step_{checkpoint.step}.cp'
+        checkpoint_filename = f'{basename}_Itr_{checkpoint.itr}.cp'
         checkpoint_filepath = save_path.joinpath(checkpoint_filename)
         torch.save(Checkpoint.save_dict(checkpoint), checkpoint_filepath)
 
         checkpoint_filepaths = retrieve_checkpoint_filepaths(save_path, basename)
-        steps = sorted(list(checkpoint_filepaths.keys()), reverse=True)
-        for step in steps[keep_number:]:
-            remove_checkpoint(checkpoint_filepaths[step])
+        itrs = sorted(list(checkpoint_filepaths.keys()), reverse=True)
+        for itr in itrs[keep_number:]:
+            remove_checkpoint(checkpoint_filepaths[itr])
     else:
         checkpoint_filepath = save_path
         torch.save(Checkpoint.save_dict(checkpoint), checkpoint_filepath)

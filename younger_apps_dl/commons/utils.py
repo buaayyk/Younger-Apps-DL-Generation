@@ -6,7 +6,7 @@
 # Author: Jason Young (杨郑鑫).
 # E-Mail: AI.Jason.Young@outlook.com
 # Last Modified by: Jason Young (杨郑鑫)
-# Last Modified time: 2025-02-24 15:47:05
+# Last Modified time: 2025-02-25 10:44:31
 # Copyright (c) 2025 Yangs.AI
 # 
 # This source code is licensed under the Apache License 2.0 found in the
@@ -39,11 +39,6 @@ def make_reproducible(seed: int = 3407, mode: bool = True):
     torch.backends.cudnn.benchmark = False
     torch.backends.cudnn.deterministic = True
     torch.use_deterministic_algorithms(mode)
-
-
-def get_logging_metrics_str(metrics: dict[str, str]) -> str:
-    metrics_str = ' '.join([f'[{metric_name}]={metric_value}' for metric_name, metric_value in metrics.items()])
-    return metrics_str
 
 
 def get_model_parameters_number(model: torch.nn.Module) -> int:
