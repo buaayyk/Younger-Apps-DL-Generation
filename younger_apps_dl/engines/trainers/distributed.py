@@ -6,7 +6,7 @@
 # Author: Jason Young (杨郑鑫).
 # E-Mail: AI.Jason.Young@outlook.com
 # Last Modified by: Jason Young (杨郑鑫)
-# Last Modified time: 2025-02-25 09:54:54
+# Last Modified time: 2025-02-25 09:57:42
 # Copyright (c) 2024 Yangs.AI
 # 
 # This source code is licensed under the Apache License 2.0 found in the
@@ -25,13 +25,12 @@ from typing import Any, Literal, Callable
 from pydantic import BaseModel, Field
 
 from torch.utils.data.distributed import DistributedSampler
-from torch.utils.data import Dataset, RandomSampler
 
 from younger.commons.io import create_dir, load_toml
 
-from younger_apps_dl.commons.utils import get_model_parameters_number, get_device_descriptor, get_logging_metrics_str, make_reproducible
+from younger_apps_dl.commons.utils import get_device_descriptor, get_logging_metrics_str, make_reproducible
 from younger_apps_dl.commons.logging import logger, equip_logger
-from younger_apps_dl.commons.checkpoint import load_checkpoint, save_checkpoint
+from younger_apps_dl.commons.checkpoint import load_checkpoint, save_checkpoint, Checkpoint
 
 from younger_apps_dl.engines import BaseEngine
 
@@ -80,7 +79,7 @@ class StandardTrainer(BaseEngine[StandardTrainerOptions]):
         configuration: dict,
         model: torch.nn.Module, optimizer: torch.optim.Optimizer, scheduler: torch.optim.lr_scheduler.LRScheduler,
         train_dataset: torch.utils.data.Dataset, valid_dataset: torch.utils.data.Dataset,
-        execution: Callable[[Any], tuple[torch.Tensor, dict]],
+        execution: Callable[[Any], tuple[torch.Tensor, dict[str, tuple[float, str]]]],
         data_loader_type: Literal['pth', 'pyg'] = 'pth',
     ):
         """
@@ -123,21 +122,21 @@ class StandardTrainer(BaseEngine[StandardTrainerOptions]):
             if self.options.reset_iteration:
                 logger.info(f'   Reset Epoch & Step.')
             else:
-                self.epoch: int = checkpoint['epoch']
-                self.step: int = checkpoint['Step']
+                self.epoch: int = checkpoint.epoch
+                self.step: int = checkpoint.step
 
             if self.options.reset_optimizer:
                 logger.info(f'   Reset Optimizer.')
             else:
-                self.optimizer.load_state_dict(checkpoint['optimizer_state'])
+                self.optimizer.load_state_dict(checkpoint.optimizer_state_dict)
 
             if self.options.reset_scheduler:
                 logger.info(f'   Reset Scheduler.')
             else:
-                self.scheduler.load_state_dict(checkpoint['scheduler_state'])
+                self.scheduler.load_state_dict(checkpoint.scheduler_state_dict)
 
             logger.info(f'    v Loading Parameters ...')
-            self.model.load_state_dict(checkpoint['model_state'])
+            self.model.load_state_dict(checkpoint.model_state_dict)
             logger.info(f'    ^ Loaded.')
 
         create_dir(self.options.checkpoint_savepath)
@@ -178,7 +177,8 @@ class StandardTrainer(BaseEngine[StandardTrainerOptions]):
         self.model.to(device=device_descriptor)
         logger.info(f'-> Process {rank} Use Device \'{device_descriptor}\'')
 
-        if rank == self.options.master_rank:
+        master_flag = rank == self.options.master_rank
+        if master_flag:
             logger.disabled = False
         else:
             logger.disabled = True
@@ -222,65 +222,49 @@ class StandardTrainer(BaseEngine[StandardTrainerOptions]):
                 if self.step % report_period == 0:
                     metrics = dict()
                     for log_key, (log_value, log_format) in logs.items():
-                        if is_distribution:
-                            distributed.all_reduce(log_value, op = distributed.ReduceOp.SUM)
-                            log_value = log_value / world_size
+                        distributed.all_reduce(log_value, op = distributed.ReduceOp.SUM)
+                        log_value = log_value / world_size
                         metrics[log_key] = log_format(float(log_value))
-                    task.logger.info(f'   [Epoch/Step]@[{epoch}/{step}] - {get_logging_metrics_str(metrics)}')
+                    logger.info(f'   [Epoch/Step]@[{self.epoch}/{self.step}] - {get_logging_metrics_str(metrics)}')
 
                 # Update Model Parameters
-                if step % update_period == 0:
+                if self.step % update_period == 0:
                     retain_graph = False
-                    task.optimizer.step()
-                    task.optimizer.zero_grad()
+                    self.optimizer.step()
+                    self.optimizer.zero_grad()
                 else:
                     retain_graph = True
                 loss.backward(retain_graph=retain_graph)
 
                 # Save Model Parameters
-                if step % train_period == 0 and is_master:
-                    task.logger.info('-> Saving checkpoint ...')
-                    tic = time.time()
-                    task.save(mode='Train', checkpoint_path=checkpoint_dirpath, checkpoint_name=checkpoint_name, keep_number=keep_number)
-                    toc = time.time()
-                    task.logger.info(f'-> Checkpoint is saved to \'{checkpoint_dirpath}\' at [Epoch/Step][{epoch}/{step}] (Time Cost: {toc-tic:.2f}s)')        
+                if self.step % train_period == 0 and master_flag:
+                    logger.info(f'-> Saving checkpoint ...')
+                    itic = time.time()
+                    checkpoint = Checkpoint(self.epoch, self.step, model.module.state_dict(), self.optimizer.state_dict(), self.scheduler.state_dict())
+                    save_checkpoint(checkpoint, self.options.checkpoint_savepath, self.options.checkpoint_basename, self.options.checkpoint_keepdisk)
+                    itoc = time.time()
+                    logger.info(f'   Checkpoint Saved (Time Cost: {itoc-itic:.2f}s): \'{self.options.checkpoint_savepath}\'')
 
                 # Do Validation
-                if step % valid_period == 0:
-                    if is_distribution:
-                        distributed.barrier()
-                    if is_master:
-                        if valid_dataloader:
-                            task.model.eval()
-                            exact_eval(
-                                task,
-                                valid_dataloader, 
-                                'Valid',
-                            )
-                            task.save(mode='Valid', checkpoint_path=checkpoint_dirpath, checkpoint_name=checkpoint_name, keep_number=keep_number)
-                            task.model.train()
-                    if is_distribution:
-                        distributed.barrier()
+                distributed.barrier()
+                if self.step % valid_period == 0 and master_flag:
+                    model.eval()
+                    exact_eval(
+                        task,
+                        valid_dataloader, 
+                        'Valid',
+                    )
+                    model.train()
+                distributed.barrier()
 
-                if task.done:
-                    task.logger.info(f'-> [Inner Epoch] The termination condition is triggered, stopping the current training process.')
-                    break
-
-                step += 1
-                task.update_status(stage='Step', step=step, epoch=epoch, loss=loss)
-
-            if task.done:
-                task.logger.info(f'-> [Inter Epoch] The termination condition is triggered, stopping the current training process.')
-                break
+                self.step += 1
 
             toc = time.time()
-            task.logger.info(f'-> Epoch@{epoch} Finished. Time Cost = {toc-tic:.2f}s')
+            logger.info(f'-> Epoch@{self.epoch} Finished. Time Cost = {toc-tic:.2f}s')
 
-            epoch += 1
-            task.update_status(stage='Epoch', step=step, epoch=epoch, loss=loss)
+            self.epoch += 1
 
-        if is_distribution:
-            distributed.destroy_process_group()
+        distributed.destroy_process_group()
 
     def solo_train(self):
         pass
