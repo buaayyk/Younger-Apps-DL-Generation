@@ -19,6 +19,8 @@ from collections import OrderedDict
 from torch_geometric.data import Batch, Data
 from sklearn.metrics import roc_auc_score, f1_score, average_precision_score
 
+from younger_apps_dl.tasks import BaseTask
+
 from younger.datasets.modules import Instance, Network
 from younger.datasets.utils.translation import get_complete_attributes_of_node
 
