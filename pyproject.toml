@@ -41,7 +41,8 @@ dependencies = [
     "tabulate",
     "networkx",
     "python-semantic-release",
-    "torch-geometric"
+    "torch-geometric",
+    "scikit-learn"
 ]
 
 [project.optional-dependencies]

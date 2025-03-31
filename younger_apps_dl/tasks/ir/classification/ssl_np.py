@@ -1,13 +1,18 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-#
-# Copyright (c) Jason Young (杨郑鑫).
-#
-# E-Mail: <AI.Jason.Young@outlook.com>
-# 2024-05-16 23:43
-#
-# This source code is licensed under the Apache-2.0 license found in the
+# -*- encoding=utf8 -*-
+
+########################################################################
+# Created time: 2025-03-27 09:52:40
+# Author: Jason Young (杨郑鑫).
+# E-Mail: AI.Jason.Young@outlook.com
+# Last Modified by: Jason Young (杨郑鑫)
+# Last Modified time: 2025-03-31 17:20:07
+# Copyright (c) 2025 Yangs.AI
+# 
+# This source code is licensed under the Apache License 2.0 found in the
 # LICENSE file in the root directory of this source tree.
+########################################################################
+
 
 import pathlib
 import networkx
@@ -16,30 +21,86 @@ import torch
 import torch.utils.data
 
 from typing import Literal
+from pydantic import BaseModel, Field
 from collections import OrderedDict
 from torch_geometric.data import Data
 from sklearn.metrics import f1_score, precision_score, recall_score, accuracy_score
 
 from younger.commons.io import load_pickle
-from younger.datasets.modules import Instance, Network, Dataset
-from younger.datasets.utils.constants import YoungerDatasetTask
-from younger.datasets.utils.translation import get_complete_attributes_of_node
 
-from younger_apps_dl.models import MAEGIN
+from younger_apps_dl.components.datasets.utils.constants import YoungerDatasetTask
+from younger_apps_dl.components.datasets.utils.translation import get_complete_attributes_of_node
+
+from younger_apps_dl.tasks import BaseTask
+from younger_apps_dl.engines import StandardTrainer, StandardEvaluator
+
+from younger_apps_dl.components.models import MAEGIN
 from younger_apps_dl.datasets import SSLDataset
-from younger.apps.dl.younger_apps_dl.tasks.standard.base import YoungerTask
 from younger_apps_dl.utils.neural_network import load_checkpoint, save_pickle
 
 
-class SSLPrediction(YoungerTask):
-    def __init__(self, custom_config: dict) -> None:
-        super().__init__(custom_config)
-        self.build_config(custom_config)
-        self._model = None
-        self._optimizer = None
-        self._train_dataset = None
-        self._valid_dataset = None
-        self._test_dataset = None
+class SSLNPOptions(BaseModel):
+    # Main Options
+    logging_filepath: str = Field('./standard_trainer.log', description="Logging file path where logs will be saved, default to None, which may save to a default path that is determined by the Younger.")
+
+    train_dataset_dirpath: str = Field(..., description="Directory path to save checkpoint.")
+    valid_dataset_dirpath = 
+
+    # Checkpoint Options
+    checkpoint_savepath: str = Field(..., description="Directory path to save checkpoint.")
+    checkpoint_basename: str = Field('checkpoint', description="Base name of the checkpoint for save/load.")
+    checkpoint_keepdisk: int = Field(5, ge=1, description="Number of checkpoints to keep on disk.")
+
+    ## Resume Options
+    resume_loadpath: str  = Field('', description="Path to load checkpoint. If "", train from scratch.")
+    reset_iteration: bool = Field(True, description="Whether to reset the iteration status (epoch, step) when loading a checkpoint.")
+    reset_optimizer: bool = Field(True, description="Whether to reset the optimizer when loading a checkpoint.")
+    reset_scheduler: bool = Field(True, description="Whether to reset the scheduler when loading a checkpoint.")
+
+    # Iteration Options
+    seed: int = Field(3407, ge=0, description="Random seed for reproducibility.")
+    shuffle: bool = Field(True, description="Shuffle the training data each epoch.")
+    life_cycle: int = Field(100, ge=1, description="Lefe cycle of the training process (in epochs).")
+
+    report_period: int = Field(100, ge=1, description="Period (in steps) to report the training status.")
+    update_period: int = Field(1, ge=1, description="Period (in steps) to update the model parameters.")
+    saving_period: int = Field(1000, ge=1, description="Period (in steps) to save the model parameters.")
+
+    train_batch_size: int = Field(32, ge=1, description="Batch size for training.")
+    valid_batch_size: int = Field(32, ge=1, description="Batch size for validation.")
+
+    # Distribution Options
+    distributed: bool = Field(False, description="Whether to use distributed training. If False, the options about distributed training will take no effect.")
+    master_addr: str  = Field('localhost', description="Master address for distributed training.")
+    master_port: str  = Field('16161', description="Master port for distributed training.")
+    master_rank: int  = Field(0, ge=0, description="Master rank for distributed training. It should be < world_size and >= 0.")
+    node_number: int  = Field(2, gt=1, description="Number of devices participating in distributed training. It should be > 1.")
+
+
+# Self-Supervised Learning for Node Prediction
+class SSL_NP(BaseTask[SSLNPOptions]):
+    def __init__(self, configuration: dict) -> None:
+        super().__init__(configuration['task'])
+
+        self.model = Model(configuration['model'])
+        if configuration['mode'] == 'train':
+            self.train_dataset = TrainDataset(configuration['train_Dataset'])
+            self.valid_dataset = TrainDataset(configuration['valid_Dataset'])
+            self.trainer = StandardTrainer(
+                configuration['trainer'],
+                self.model,
+                self.optimizer,
+                self.scheduler,
+                self.train_dataset,
+                self.valid_dataset,
+                self.train,
+                self.valid,
+                'pyg'
+            )
+
+        if configuration['mode'] == 'eval':
+            self.test_dataset = TrainDataset(configuration['test_Dataset'])
+            self.trainer = StandardTrainer(
 
     def build_config(self, custom_config: dict):
         mode = custom_config.get('mode', 'Train')
@@ -48,8 +109,6 @@ class SSLPrediction(YoungerTask):
         # Dataset
         dataset_config = dict()
         custom_dataset_config = custom_config.get('dataset', dict())
-        dataset_config['train_dataset_dirpath'] = custom_dataset_config.get('train_dataset_dirpath', None)
-        dataset_config['valid_dataset_dirpath'] = custom_dataset_config.get('valid_dataset_dirpath', None)
         dataset_config['test_dataset_dirpath'] = custom_dataset_config.get('test_dataset_dirpath', None)
         dataset_config['dataset_name'] = custom_dataset_config.get('dataset_name', 'SSLDataset')
         dataset_config['encode_type'] = custom_dataset_config.get('encode_type', 'node')
