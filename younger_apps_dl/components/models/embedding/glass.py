@@ -1,15 +1,17 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-#
-# Copyright (c) Jason Young (杨郑鑫).
-#
-# E-Mail: <AI.Jason.Young@outlook.com>
-# 2024-05-25 16:13
-#
-# This source code is licensed under the Apache-2.0 license found in the
-# LICENSE file in the root directory of this source tree.
+# -*- encoding=utf8 -*-
 
-# The Code of GLASS are copied and modified from Official GLASS Repository: https://github.com/Xi-yuanWang/GLASS
+########################################################################
+# Created time: 2025-03-14 21:43:17
+# Author: Jason Young (杨郑鑫).
+# E-Mail: AI.Jason.Young@outlook.com
+# Last Modified by: Jason Young (杨郑鑫)
+# Last Modified time: 2025-04-01 11:16:10
+# Copyright (c) 2025 Yangs.AI
+# 
+# This source code is licensed under the Apache License 2.0 found in the
+# LICENSE file in the root directory of this source tree.
+########################################################################
 
 
 import torch

@@ -1,19 +1,35 @@
+#!/usr/bin/env python3
+# -*- encoding=utf8 -*-
+
+########################################################################
+# Created time: 2025-03-14 21:43:17
+# Author: Jason Young (杨郑鑫).
+# E-Mail: AI.Jason.Young@outlook.com
+# Last Modified by: Jason Young (杨郑鑫)
+# Last Modified time: 2025-04-01 11:14:21
+# Copyright (c) 2025 Yangs.AI
+# 
+# This source code is licensed under the Apache License 2.0 found in the
+# LICENSE file in the root directory of this source tree.
+########################################################################
+
+
 import torch
-import torch.nn as nn
-import torch.nn.functional as F
+from torch import nn
 from torch.nn import Embedding
-from torch_geometric.nn import GCNConv
+from torch.nn import functional as F
+from torch_geometric.nn import SAGEConv
 
 
-class GCN_NP(nn.Module):
+class SAGE(nn.Module):
 
     def __init__(self, node_dict_size, node_dim, hidden_dim, dropout, output_embedding = False):
-        super(GCN_NP, self).__init__()
+        super(SAGE_NP, self).__init__()
         self.output_embedding = output_embedding
         self.node_embedding_layer = Embedding(node_dict_size, node_dim)
         self.dropout = dropout
-        self.layer_1 = GCNConv(node_dim, hidden_dim)
-        self.layer_2 = GCNConv(hidden_dim, node_dict_size)
+        self.layer_1 = SAGEConv(node_dim, hidden_dim)
+        self.layer_2 = SAGEConv(hidden_dim, node_dict_size)
         self.initialize_parameters()
 
     def forward(self, x, edge_index, mask_x_position):

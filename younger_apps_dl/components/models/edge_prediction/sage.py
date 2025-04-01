@@ -1,3 +1,19 @@
+#!/usr/bin/env python3
+# -*- encoding=utf8 -*-
+
+########################################################################
+# Created time: 2025-03-14 21:43:17
+# Author: Jason Young (杨郑鑫).
+# E-Mail: AI.Jason.Young@outlook.com
+# Last Modified by: Jason Young (杨郑鑫)
+# Last Modified time: 2025-04-01 10:47:18
+# Copyright (c) 2025 Yangs.AI
+# 
+# This source code is licensed under the Apache License 2.0 found in the
+# LICENSE file in the root directory of this source tree.
+########################################################################
+
+
 import torch.nn.functional as F
 
 from torch import nn
@@ -5,9 +21,9 @@ from torch.nn import Embedding
 from torch_geometric.nn import SAGEConv
 
 
-class SAGE_LP(nn.Module):
+class SAGE(nn.Module):
     def __init__(self, node_dict_size, node_dim, hidden_dim, output_dim):
-        super(SAGE_LP, self).__init__()
+        super(SAGE, self).__init__()
         self.node_embedding_layer = Embedding(node_dict_size, node_dim)
         self.conv1 = SAGEConv(node_dim, hidden_dim)
         self.conv2 = SAGEConv(hidden_dim, output_dim)

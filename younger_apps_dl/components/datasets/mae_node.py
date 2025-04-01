@@ -1,13 +1,17 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-#
-# Copyright (c) Jason Young (杨郑鑫).
-#
-# E-Mail: <AI.Jason.Young@outlook.com>
-# 2024-05-21 12:24
-#
-# This source code is licensed under the Apache-2.0 license found in the
+# -*- encoding=utf8 -*-
+
+########################################################################
+# Created time: 2025-03-31 21:20:17
+# Author: Jason Young (杨郑鑫).
+# E-Mail: AI.Jason.Young@outlook.com
+# Last Modified by: Jason Young (杨郑鑫)
+# Last Modified time: 2025-03-31 22:01:56
+# Copyright (c) 2025 Yangs.AI
+# 
+# This source code is licensed under the Apache License 2.0 found in the
 # LICENSE file in the root directory of this source tree.
+########################################################################
 
 
 import os
@@ -26,12 +30,10 @@ from torch_geometric.data.data import DataEdgeAttr, DataTensorAttr
 from torch_geometric.data.storage import GlobalStorage
 
 from younger.commons.io import load_json, load_pickle, tar_extract
-
-from younger.datasets.modules import Network
-from younger.datasets.utils.constants import YoungerDatasetAddress
+from younger_apps_dl.commons.constants import YADL
 
 
-class NodeData(Data):
+class SSLNPData(Data):
     def __cat_dim__(self, key: str, value: Any, *args, **kwargs) -> Any:
         if key == 'mask_x_label': # op type
             return -1
@@ -59,7 +61,7 @@ class NodeData(Data):
             return 0
 
 
-class NodeDataset(Dataset):
+class SSLNPDataset(Dataset):
     def __init__(
         self,
         root: str,
@@ -75,21 +77,23 @@ class NodeDataset(Dataset):
         dataset_name: str = 'Younger_NP',
         encode_type: Literal['node', 'operator'] = 'node',
         standard_onnx: bool = False,
+        mask_probability: float = 0.15,
 
         worker_number: int = 4,
     ):
         assert encode_type in {'node', 'operator'}
 
-        self.dataset_name = dataset_name if dataset_name else f'Younger_NP_{self.encode_type.capitalize()}'
+        self.dataset_name = dataset_name
         self.encode_type = encode_type
         self.worker_number = worker_number
         self.standard_onnx = standard_onnx
+        self.mask_probability = mask_probability
 
         meta_filepath = os.path.join(root, 'meta.json')
         if not os.path.isfile(meta_filepath):
             print(f'No \'meta.json\' File Provided, It will be downloaded From Official Cite ...')
             if encode_type == 'node':
-                download_url(getattr(YoungerDatasetAddress, f'OPERATOR_{split.upper()}_WA_PAPER'), root, filename='meta.json')
+                download_url(getattr(YADL, f'OPERATOR_{split.upper()}_WA_PAPER'), root, filename='meta.json')
             if encode_type == 'operator':
                 download_url(getattr(YoungerDatasetAddress, f'OPERATOR_{split.upper()}_WOA_PAPER'), root, filename='meta.json')
 
@@ -119,7 +123,7 @@ class NodeDataset(Dataset):
     def len(self) -> int:
         return self.meta['size']
 
-    def get(self, index: int) -> NodeData:
+    def get(self, index: int) -> SSLData:
         block_data = torch.load(os.path.join(self.processed_dir, f'sample-{index}.pth'))
         # torch.serialization.add_safe_globals([NodeData, DataEdgeAttr, DataTensorAttr, GlobalStorage])
         # block_data = torch.load(os.path.join(self.processed_dir, f'sample-{index}.pth'), weights_only=True)
@@ -165,6 +169,8 @@ class NodeDataset(Dataset):
             meta['all_nodes'] = loaded_meta['all_nodes']
         if encode_type == 'operator':
             meta['all_operators'] = loaded_meta['all_operators']
+
+        meta['all_tasks'] = loaded_meta['all_tasks']
 
         meta['split'] = loaded_meta['split']
         meta['archive'] = loaded_meta['archive']
@@ -225,20 +231,12 @@ class NodeDataset(Dataset):
         return node_class
 
     @classmethod
-    def get_x(cls, graph: networkx.DiGraph, mapping: dict[str, int], boundary: set[str], x_dict: dict[str, Any], encode_type: Literal['node', 'operator'] = 'node') -> torch.Tensor:
+    def get_x(cls, graph: networkx.DiGraph, mapping: dict[str, int], x_dict: dict[str, Any], encode_type: Literal['node', 'operator'] = 'node') -> torch.Tensor:
         node_indices = sorted(list(graph.nodes), key=lambda x: mapping[x])
-
-        if encode_type == 'node':
-            dict_key = 'n2i'
-        if encode_type == 'operator':
-            dict_key = 'o2i'
 
         node_features = list()
         for node_index in node_indices:
-            if node_index in boundary:
-                node_feature = [x_dict[dict_key]['__MASK__']]
-            else:
-                node_feature = [cls.get_node_class(graph.nodes[node_index]['features'], x_dict, encode_type=encode_type)]
+            node_feature = [cls.get_node_class(graph.nodes[node_index], x_dict, encode_type=encode_type)]
             node_features.append(node_feature)
         node_features = torch.tensor(node_features, dtype=torch.long)
 
@@ -250,8 +248,8 @@ class NodeDataset(Dataset):
         sample: tuple[str, networkx.DiGraph, tuple],
         x_dict: dict[str, Any],
         encode_type: Literal['node', 'operator'] = 'node',
-    ) -> NodeData:
-        subgraph_hash, subgraph, boundary = sample
+    ) -> Data:
+        subgraph_hash, subgraph, _ = sample
         mapping = cls.get_mapping(subgraph) # e.g.
                                             # dict(zip(sorted(G.nodes()), range(G.number_of_nodes())))
                                             # >>> print(node_mapping)
@@ -261,10 +259,7 @@ class NodeDataset(Dataset):
                                             # >>> print(sorted(G.nodes()))
                                             # [2, 3, 5, 10]
 
-        x = cls.get_x(subgraph, mapping, boundary, x_dict, encode_type)
+        x = cls.get_x(subgraph, mapping, x_dict, encode_type)
         edge_index = cls.get_edge_index(subgraph, mapping)
-        mask_x_label = torch.tensor([cls.get_node_class(subgraph.nodes[node]['features'], x_dict, encode_type) for node in sorted(list(boundary))], dtype=torch.long)
-        mask_x_position = torch.tensor([mapping[node] for node in sorted(list(boundary))], dtype=torch.long)
-
-        block_data = NodeData(x=x, edge_index=edge_index, mask_x_label=mask_x_label, mask_x_position=mask_x_position)
+        block_data = Data(x=x, edge_index=edge_index)
         return block_data

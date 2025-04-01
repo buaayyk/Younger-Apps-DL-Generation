@@ -6,7 +6,7 @@
 # Author: Jason Young (杨郑鑫).
 # E-Mail: AI.Jason.Young@outlook.com
 # Last Modified by: Jason Young (杨郑鑫)
-# Last Modified time: 2025-04-01 11:28:36
+# Last Modified time: 2025-04-01 10:46:45
 # Copyright (c) 2025 Yangs.AI
 # 
 # This source code is licensed under the Apache License 2.0 found in the
@@ -14,8 +14,7 @@
 ########################################################################
 
 
-from .ae import AE_Encoder, AE_LinearCls
-from .gcn import GCN_NP
-from .gin import GIN_NP
-from .gat import GAT_NP
-from .sage import SAGE_NP
+from .gat import GAT
+from .gcn import GCN
+from .sage import SAGE
+from .vgae import VGAE
