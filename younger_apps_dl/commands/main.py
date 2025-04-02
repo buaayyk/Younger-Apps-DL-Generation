@@ -6,7 +6,7 @@
 # Author: Jason Young (杨郑鑫).
 # E-Mail: AI.Jason.Young@outlook.com
 # Last Modified by: Jason Young (杨郑鑫)
-# Last Modified time: 2025-02-21 13:17:38
+# Last Modified time: 2025-04-02 16:04:38
 # Copyright (c) 2024 Yangs.AI
 # 
 # This source code is licensed under the Apache License 2.0 found in the
@@ -85,7 +85,7 @@ def option(some_type: Literal['components', 'engines', 'tasks'], some_kind: str,
 @click.option('--task-name',        required=True,  type=str, help='Indicates the name of task.')
 @click.option('--task-step',        required=True,  type=click.Choice(['train', 'evaluate', 'predict', 'preprocess', 'postprocess'], case_sensitive=True), help='Indicates the step of task.')
 @click.option('--options-filepath', required=False, type=click.Path(exists=False, file_okay=True, dir_okay=False, path_type=pathlib.Path), default=None, help='Path to the options file; if not provided, default options will be used.')
-def train(task_kind, task_name, task_step, options_filepath, logging_filepath):
+def launch(task_kind, task_name, task_step, options_filepath, logging_filepath):
     """
     _summary_
 

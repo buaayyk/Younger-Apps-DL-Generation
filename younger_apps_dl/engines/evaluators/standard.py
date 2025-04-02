@@ -6,7 +6,7 @@
 # Author: Jason Young (杨郑鑫).
 # E-Mail: AI.Jason.Young@outlook.com
 # Last Modified by: Jason Young (杨郑鑫)
-# Last Modified time: 2025-02-25 16:42:29
+# Last Modified time: 2025-04-02 15:47:14
 # Copyright (c) 2024 Yangs.AI
 # 
 # This source code is licensed under the Apache License 2.0 found in the
@@ -31,9 +31,6 @@ from younger_apps_dl.engines import BaseEngine
 
 
 class StandardEvaluatorOptions(BaseModel):
-    # Main Options
-    logging_filepath: str = Field('./standard_evaluator.log', description="Logging file path where logs will be saved, default to None, which may save to a default path that is determined by the Younger.")
-
     # Checkpoint Options
     checkpoint_filepath: str  = Field(..., description="Path to load checkpoint.")
 
@@ -51,12 +48,14 @@ class StandardEvaluator(BaseEngine[StandardEvaluatorOptions]):
         dataset: torch.utils.data.Dataset,
         evaluate_fn: Callable[[torch.nn.Module, Any], tuple[list[str], list[torch.Tensor], list[Callable[[float], str]]]],
         dataloader: Literal['pth', 'pyg'] = 'pth',
+        logging_filepath: pathlib.Path | None = None,
     ):
         super().__init__(configuration)
         self.model = model
         self.dataset = dataset
         self.evaluate_fn = evaluate_fn
         self.dataloader = dataloader
+        self.logging_filepath = logging_filepath
 
     def log(self, metric_names: list[str], metric_values: list[torch.Tensor], metric_formats: list[Callable[[float], str]]) -> None:
         logs = list()
@@ -65,7 +64,7 @@ class StandardEvaluator(BaseEngine[StandardEvaluatorOptions]):
         logger.info(f'Evaluation Results - {' '.join(logs)}')
 
     def run(self):
-        equip_logger(self.options.logging_filepath)
+        equip_logger(self.logging_filepath)
         checkpoint = load_checkpoint(pathlib.Path(self.options.checkpoint_filepath))
 
         logger.info(f'-> Checkpoint from [Epoch/Step/Itr]@[{checkpoint.epoch}/{checkpoint.step}/{checkpoint.itr}].')

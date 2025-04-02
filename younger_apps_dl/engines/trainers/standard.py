@@ -6,7 +6,7 @@
 # Author: Jason Young (杨郑鑫).
 # E-Mail: AI.Jason.Young@outlook.com
 # Last Modified by: Jason Young (杨郑鑫)
-# Last Modified time: 2025-02-25 16:43:38
+# Last Modified time: 2025-04-02 15:35:43
 # Copyright (c) 2024 Yangs.AI
 # 
 # This source code is licensed under the Apache License 2.0 found in the
@@ -36,9 +36,6 @@ from younger_apps_dl.engines import BaseEngine
 
 
 class StandardTrainerOptions(BaseModel):
-    # Main Options
-    logging_filepath: str = Field('./standard_trainer.log', description="Logging file path where logs will be saved, default to None, which may save to a default path that is determined by the Younger.")
-
     # Checkpoint Options
     checkpoint_savepath: str = Field(..., description="Directory path to save checkpoint.")
     checkpoint_basename: str = Field('checkpoint', description="Base name of the checkpoint for save/load.")
@@ -82,6 +79,7 @@ class StandardTrainer(BaseEngine[StandardTrainerOptions]):
         train_fn: Callable[[torch.nn.Module, Any], tuple[list[str], list[torch.Tensor], list[Callable[[float], str]]]],
         valid_fn: Callable[[torch.nn.Module, Any], tuple[list[str], list[torch.Tensor], list[Callable[[float], str]]]],
         dataloader: Literal['pth', 'pyg'] = 'pth',
+        logging_filepath: pathlib.Path | None = None,
     ):
         """
         _summary_
@@ -115,6 +113,7 @@ class StandardTrainer(BaseEngine[StandardTrainerOptions]):
         self.train_fn = train_fn
         self.valid_fn = valid_fn
         self.dataloader = dataloader
+        self.logging_filepath = logging_filepath
         self.start_from_epoch = 0
         self.start_from_step = 0
         self.start_from_itr = 0
@@ -129,7 +128,7 @@ class StandardTrainer(BaseEngine[StandardTrainerOptions]):
             logger.info(f'   [Epoch/Step/Itr]@[{epoch}/{step}/{itr}] - {' '.join(logs)}')
 
     def run(self) -> None:
-        equip_logger(self.options.logging_filepath)
+        equip_logger(self.logging_filepath)
         if len(self.options.resume_filepath) == 0:
             logger.info(f'-> Train from scratch.')
         else:
@@ -189,7 +188,7 @@ class StandardTrainer(BaseEngine[StandardTrainerOptions]):
         logger.info(f'-> All Done! Overall Time Cost = {toc-tic:.2f}s')
 
     def pile_train(self, rank: int) -> None:
-        equip_logger(self.options.logging_filepath)
+        equip_logger(self.logging_filepath)
 
         make_reproducible(self.options.seed)
         torch.autograd.set_detect_anomaly(True)
@@ -279,7 +278,7 @@ class StandardTrainer(BaseEngine[StandardTrainerOptions]):
         distributed.destroy_process_group()
 
     def solo_train(self) -> None:
-        equip_logger(self.options.logging_filepath)
+        equip_logger(self.logging_filepath)
 
         make_reproducible(self.options.seed)
         torch.autograd.set_detect_anomaly(True)

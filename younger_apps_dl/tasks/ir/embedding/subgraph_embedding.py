@@ -6,7 +6,7 @@
 # Author: Jason Young (杨郑鑫).
 # E-Mail: AI.Jason.Young@outlook.com
 # Last Modified by: Jason Young (杨郑鑫)
-# Last Modified time: 2025-04-01 22:34:44
+# Last Modified time: 2025-04-02 17:27:17
 # Copyright (c) 2025 Yangs.AI
 # 
 # This source code is licensed under the Apache License 2.0 found in the
@@ -48,7 +48,7 @@ from younger_apps_dl.components.datasets.utils.constants import YoungerDatasetTa
 from younger_apps_dl.components.datasets.utils.translation import get_complete_attributes_of_node
 
 from younger_apps_dl.tasks import BaseTask
-from younger_apps_dl.engines import StandardTrainer, StandardTrainerOptions, StandardEvaluator, StandardEvaluatorOptions
+from younger_apps_dl.engines import StandardTrainer, StandardEvaluator
 
 from younger_apps_dl.components.models import MAEGIN
 from younger_apps_dl.datasets import SSLDataset
@@ -193,8 +193,12 @@ if __name__ == '__main__':
 
 class SubgraphEmbeddingOptions(BaseModel):
     # Main Options
-    logging_filepath: str = Field('./standard_trainer.log', description="Logging file path where logs will be saved, default to None, which may save to a default path that is determined by the Younger.")
+    logging_filepath: str = Field('./subgraph_embedding.log', description="Logging file path where logs will be saved, default to None, which may save to a default path that is determined by the Younger.")
 
+    mode: Literal['train', 'valid', 'test'] = Field(..., description='Mode of the Task: "train", "valid", and "test"')
+
+    model_type: Literal['MAEGIN']
+    maegin: 
     train_dataset_dirpath: str = Field(..., description="Directory path to save checkpoint.")
     valid_dataset_dirpath = 
 
@@ -234,10 +238,11 @@ class SubgraphEmbedding(BaseTask[SubgraphEmbeddingOptions]):
     def __init__(self, configuration: dict) -> None:
         super().__init__(configuration)
 
-        self.model = Model(configuration['model'])
+        self.model = self.build_model(self.options.backbone, configuration[''])
+
         if configuration['mode'] == 'train':
-            self.train_dataset = TrainDataset(configuration['train_Dataset'])
-            self.valid_dataset = TrainDataset(configuration['valid_Dataset'])
+            self.train_dataset = (configuration['train_Dataset'])
+            self.valid_dataset = (configuration['valid_Dataset'])
             self.trainer = StandardTrainer(
                 configuration['trainer'],
                 self.model,
@@ -251,8 +256,8 @@ class SubgraphEmbedding(BaseTask[SubgraphEmbeddingOptions]):
             )
 
         if configuration['mode'] == 'eval':
-            self.test_dataset = TrainDataset(configuration['test_Dataset'])
-            self.trainer = StandardTrainer(
+            self.test_dataset = (configuration['test_Dataset'])
+            self.evaluator = StandardEvaluator()
 
     def build_config(self, custom_config: dict):
         mode = custom_config.get('mode', 'Train')
