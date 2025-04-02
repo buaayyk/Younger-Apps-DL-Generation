@@ -6,7 +6,7 @@
 # Author: Jason Young (杨郑鑫).
 # E-Mail: AI.Jason.Young@outlook.com
 # Last Modified by: Jason Young (杨郑鑫)
-# Last Modified time: 2025-04-02 17:31:13
+# Last Modified time: 2025-04-02 23:15:09
 # Copyright (c) 2025 Yangs.AI
 # 
 # This source code is licensed under the Apache License 2.0 found in the
@@ -19,20 +19,21 @@ import numpy
 import torch.nn as nn
 import torch.nn.functional as F
 
+from pydantic import BaseModel, Field
+
 from torch.nn import Embedding
 from torch_geometric.nn import GINConv
 
-from pydantic import BaseModel, Field
-
-from younger_apps_dl.components import BaseComponent
+from younger_apps_dl.components import BaseComponent, register_component
 
 
 class MAEGINOptions(BaseModel):
-    node_dict_size: int = Field(..., )
+    node_dict_size: int = Field()
 
 
-class MAEGIN(BaseComponent[nn.Module]):
-
+@register_component('model', 'maegin')
+class MAEGIN(BaseComponent, nn.Module):
+    _options_ = MAEGINOptions
     def __init__(self, node_dict_size, node_dim, hidden_dim, dropout, layer_number = 3):
         super(MAEGIN, self).__init__()
         self.encoder = MAEGINEncoder(node_dict_size, node_dim, hidden_dim, dropout, layer_number)

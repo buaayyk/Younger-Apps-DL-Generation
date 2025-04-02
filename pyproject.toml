@@ -37,7 +37,6 @@ dependencies = [
     "tqdm",
     "torch",
     "click",
-    "pydantic",
     "tabulate",
     "networkx",
     "python-semantic-release",

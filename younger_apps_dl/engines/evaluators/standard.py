@@ -6,7 +6,7 @@
 # Author: Jason Young (杨郑鑫).
 # E-Mail: AI.Jason.Young@outlook.com
 # Last Modified by: Jason Young (杨郑鑫)
-# Last Modified time: 2025-04-02 15:47:14
+# Last Modified time: 2025-04-02 22:14:49
 # Copyright (c) 2024 Yangs.AI
 # 
 # This source code is licensed under the Apache License 2.0 found in the
@@ -14,7 +14,6 @@
 ########################################################################
 
 
-import tqdm
 import time
 import torch
 import pathlib
@@ -22,12 +21,10 @@ import pathlib
 from typing import Any, Literal, Callable
 from pydantic import BaseModel, Field
 
-from younger.commons.io import create_dir
-
 from younger_apps_dl.commons.logging import equip_logger, logger
 from younger_apps_dl.commons.checkpoint import load_checkpoint
 
-from younger_apps_dl.engines import BaseEngine
+from younger_apps_dl.engines import BaseEngine, register_engine
 
 
 class StandardEvaluatorOptions(BaseModel):
@@ -38,6 +35,7 @@ class StandardEvaluatorOptions(BaseModel):
     batch_size: int = Field(32, ge=1, description="Batch size for validation.")
 
 
+@register_engine('evaluator', 'standard')
 class StandardEvaluator(BaseEngine[StandardEvaluatorOptions]):
     _options_ = StandardEvaluatorOptions
 

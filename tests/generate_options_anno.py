@@ -1,4 +1,4 @@
-import toml
+import json
 from pydantic import BaseModel, Field
 from typing import Optional
 
@@ -39,13 +39,16 @@ def model_to_toml(model: BaseModel) -> str:
                 toml_data[field] = field_metadata
 
     # Convert the dictionary to TOML format string
-    return toml.dumps({k: v for k, v in toml_data.items()})
+    return json.dumps({k: v for k, v in toml_data.items()})
 
 # Test
 gae_config = GAEOptions(learning_rate=0.01, alpha=0.5, dim=128)
 example_config = ExampleModel(name="John", age=25, city="New York", model_configuration=gae_config)
 
+print(example_config.age)
+print(type(example_config))
 # Convert the ExampleModel instance to TOML format
-toml_str = model_to_toml(example_config)
-print(toml_str)
+# toml_str = model_to_toml(example_config)
+# print(toml_str)
+#print(json.dumps(ExampleModel.model_json_schema(), indent=2))
 

@@ -6,7 +6,7 @@
 # Author: Jason Young (杨郑鑫).
 # E-Mail: AI.Jason.Young@outlook.com
 # Last Modified by: Jason Young (杨郑鑫)
-# Last Modified time: 2025-04-02 15:35:43
+# Last Modified time: 2025-04-02 23:06:16
 # Copyright (c) 2024 Yangs.AI
 # 
 # This source code is licensed under the Apache License 2.0 found in the
@@ -32,7 +32,7 @@ from younger_apps_dl.commons.utils import get_device_descriptor, make_reproducib
 from younger_apps_dl.commons.logging import logger, equip_logger
 from younger_apps_dl.commons.checkpoint import load_checkpoint, save_checkpoint, Checkpoint
 
-from younger_apps_dl.engines import BaseEngine
+from younger_apps_dl.engines import BaseEngine, register_engine
 
 
 class StandardTrainerOptions(BaseModel):
@@ -67,6 +67,7 @@ class StandardTrainerOptions(BaseModel):
     node_number: int  = Field(2, gt=1, description="Number of devices participating in distributed training. It should be > 1.")
 
 
+@register_engine('trainer', 'standard')
 class StandardTrainer(BaseEngine[StandardTrainerOptions]):
     _options_ = StandardTrainerOptions
 
