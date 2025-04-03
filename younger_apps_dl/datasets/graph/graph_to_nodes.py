@@ -6,7 +6,7 @@
 # Author: Jason Young (杨郑鑫).
 # E-Mail: AI.Jason.Young@outlook.com
 # Last Modified by: Jason Young (杨郑鑫)
-# Last Modified time: 2025-04-01 11:17:16
+# Last Modified time: 2025-04-03 16:44:55
 # Copyright (c) 2025 Yangs.AI
 # 
 # This source code is licensed under the Apache License 2.0 found in the
@@ -31,11 +31,10 @@ from torch_geometric.data.storage import GlobalStorage
 
 from younger.commons.io import load_json, load_pickle, tar_extract
 
-from younger.datasets.modules import Network
-from younger.datasets.utils.constants import YoungerDatasetAddress
+from younger_apps_dl.commons.constants import YADL_Dataset_Address
 
 
-class NodeData(Data):
+class GraphToNodesData(Data):
     def __cat_dim__(self, key: str, value: Any, *args, **kwargs) -> Any:
         if key == 'mask_x_label': # op type
             return -1
@@ -63,53 +62,45 @@ class NodeData(Data):
             return 0
 
 
-class NodeDataset(Dataset):
+class GraphToNodesDataset(Dataset):
     def __init__(
         self,
-        root: str,
-        split: Literal['train', 'valid', 'test'],
+
+        name: str = 'YLDL-G2N',
+        split: Literal['train', 'valid', 'test'] = 'train',
+        dict_size: int = -1,
+        worker_number: int = 4,
+
+        root: str | None = None,
         transform: Callable | None = None,
         pre_transform: Callable | None = None,
         pre_filter: Callable | None = None,
         log: bool = True,
         force_reload: bool = False,
-
-        node_dict_size: int | None = None,
-        operator_dict_size: int | None = None,
-        dataset_name: str = 'Younger_NP',
-        encode_type: Literal['node', 'operator'] = 'node',
-        standard_onnx: bool = False,
-
-        worker_number: int = 4,
     ):
-        assert encode_type in {'node', 'operator'}
-
-        self.dataset_name = dataset_name if dataset_name else f'Younger_NP_{self.encode_type.capitalize()}'
-        self.encode_type = encode_type
+        self.name = name
+        self.split = split
+        self.dict_size = dict_size
         self.worker_number = worker_number
-        self.standard_onnx = standard_onnx
 
         meta_filepath = os.path.join(root, 'meta.json')
         if not os.path.isfile(meta_filepath):
             print(f'No \'meta.json\' File Provided, It will be downloaded From Official Cite ...')
-            if encode_type == 'node':
-                download_url(getattr(YoungerDatasetAddress, f'OPERATOR_{split.upper()}_WA_PAPER'), root, filename='meta.json')
-            if encode_type == 'operator':
-                download_url(getattr(YoungerDatasetAddress, f'OPERATOR_{split.upper()}_WOA_PAPER'), root, filename='meta.json')
+            # download_url(YADL_Dataset_Address, root, filename='meta.json')
 
-        self.meta = self.__class__.load_meta(meta_filepath, encode_type=self.encode_type)
-        self.x_dict = self.__class__.get_x_dict(self.meta, node_dict_size=node_dict_size, operator_dict_size=operator_dict_size, standard_onnx=self.standard_onnx)
+        self.meta = self.__class__.load_meta(meta_filepath)
+        self.dict = self.__class__.load_dict(self.meta, dict_size=dict_size)
 
         super().__init__(root, transform, pre_transform, pre_filter, log, force_reload)
 
     @property
     def raw_dir(self) -> str:
-        name = f'{self.dataset_name}_Raw'
+        name = f'{self.name}_Raw'
         return os.path.join(self.root, name)
 
     @property
     def processed_dir(self) -> str:
-        name = f'{self.dataset_name}_Processed'
+        name = f'{self.name}_Processed'
         return os.path.join(self.root, name)
 
     @property

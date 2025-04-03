@@ -6,7 +6,7 @@
 # Author: Jason Young (杨郑鑫).
 # E-Mail: AI.Jason.Young@outlook.com
 # Last Modified by: Jason Young (杨郑鑫)
-# Last Modified time: 2025-04-01 10:59:54
+# Last Modified time: 2025-04-03 12:12:22
 # Copyright (c) 2025 Yangs.AI
 # 
 # This source code is licensed under the Apache License 2.0 found in the
@@ -14,4 +14,19 @@
 ########################################################################
 
 
-from .mae_node import MAENodeDataset
+import torch
+
+from typing import Type
+
+
+DATASET_REGISTRY: dict[ str, Type[torch.utils.data.Dataset] ] = dict()
+
+
+def register_dataset(name: str):
+    assert name not in DATASET_REGISTRY[name]
+    def wrapper(cls: Type[torch.utils.data.Dataset]) -> Type[torch.utils.data.Dataset]:
+        DATASET_REGISTRY[name] = cls
+        return cls
+    return wrapper
+
+from .graph import *

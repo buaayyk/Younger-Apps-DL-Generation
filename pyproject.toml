@@ -37,11 +37,13 @@ dependencies = [
     "tqdm",
     "torch",
     "click",
+    "younger",
     "tabulate",
     "networkx",
-    "python-semantic-release",
-    "torch-geometric",
     "scikit-learn"
+    "torch-geometric",
+    "younger-logics-ir",
+    "python-semantic-release",
 ]
 
 [project.optional-dependencies]

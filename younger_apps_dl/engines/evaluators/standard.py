@@ -6,7 +6,7 @@
 # Author: Jason Young (杨郑鑫).
 # E-Mail: AI.Jason.Young@outlook.com
 # Last Modified by: Jason Young (杨郑鑫)
-# Last Modified time: 2025-04-02 22:14:49
+# Last Modified time: 2025-04-03 11:06:21
 # Copyright (c) 2024 Yangs.AI
 # 
 # This source code is licensed under the Apache License 2.0 found in the
@@ -29,10 +29,10 @@ from younger_apps_dl.engines import BaseEngine, register_engine
 
 class StandardEvaluatorOptions(BaseModel):
     # Checkpoint Options
-    checkpoint_filepath: str  = Field(..., description="Path to load checkpoint.")
+    checkpoint_filepath: str  = Field(..., description='Path to load checkpoint.')
 
     # Iteration Options
-    batch_size: int = Field(32, ge=1, description="Batch size for validation.")
+    batch_size: int = Field(32, ge=1, description='Batch size for validation.')
 
 
 @register_engine('evaluator', 'standard')

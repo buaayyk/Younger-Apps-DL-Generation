@@ -6,7 +6,7 @@
 # Author: Jason Young (杨郑鑫).
 # E-Mail: AI.Jason.Young@outlook.com
 # Last Modified by: Jason Young (杨郑鑫)
-# Last Modified time: 2025-04-01 10:41:13
+# Last Modified time: 2025-04-03 16:42:21
 # Copyright (c) 2025 Yangs.AI
 # 
 # This source code is licensed under the Apache License 2.0 found in the
@@ -20,7 +20,6 @@ from younger.commons.constants import Constant
 class YADL_DATASET_ADDRESS(Constant):
     def initialize(self) -> None:
         self.ENDPOINT = 'https://younger.yangs.ai/public/'
-        self.SSL_NP = 'items/YADL_SSL_NP'
 
 YADL_Dataset_Address = YADL_DATASET_ADDRESS()
 YADL_Dataset_Address.initialize()

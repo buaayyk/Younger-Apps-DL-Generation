@@ -6,7 +6,7 @@
 # Author: Jason Young (杨郑鑫).
 # E-Mail: AI.Jason.Young@outlook.com
 # Last Modified by: Jason Young (杨郑鑫)
-# Last Modified time: 2025-04-02 17:28:19
+# Last Modified time: 2025-04-03 09:49:55
 # Copyright (c) 2025 Yangs.AI
 # 
 # This source code is licensed under the Apache License 2.0 found in the
@@ -14,5 +14,5 @@
 ########################################################################
 
 
-from .maegin import MAEGIN
+from .maegin import MAEGIN, MAEGINOptions
 from .glass import GLASS

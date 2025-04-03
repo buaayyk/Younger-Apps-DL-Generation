@@ -6,7 +6,7 @@
 # Author: Jason Young (杨郑鑫).
 # E-Mail: AI.Jason.Young@outlook.com
 # Last Modified by: Jason Young (杨郑鑫)
-# Last Modified time: 2025-04-02 22:58:48
+# Last Modified time: 2025-04-03 11:36:16
 # Copyright (c) 2024 Yangs.AI
 # 
 # This source code is licensed under the Apache License 2.0 found in the
@@ -31,38 +31,53 @@ def main():
 
 
 @main.command(name='glance')
-@click.option('--some-type', required=True, type=click.Choice(['components', 'engines', 'tasks'], case_sensitive=True), help='Indicates the type of task will be used.')
-def glance(some_type: Literal['components', 'engines', 'tasks']):
+@click.option('--some-type', required=True, type=click.Choice(['models', 'datasets', 'engines', 'tasks'], case_sensitive=True), help='Indicates the type of task will be used.')
+def glance(some_type: Literal['models', 'datasets', 'engines', 'tasks']):
     """
-    Displays all possible `kind` and `name` candidates under a specific `type`.
+    Displays all possible candidates under a specific `type`.
 
     :param some_type: _description_
-    :type some_type: Literal[&#39;components&#39;, &#39;engines&#39;, &#39;tasks&#39;]
+    :type some_type: Literal[&#39;models&#39;, &#39;datasets&#39;, &#39;engines&#39;, &#39;tasks&#39;]
     """
     table_name = some_type.capitalize()
     table_data = list()
     registry = dict()
-    if some_type == 'components':
-        from younger_apps_dl.components import COMPONENT_REGISTRY
-        registry = COMPONENT_REGISTRY
+    if some_type in ['models', 'datasets']:
+        if some_type == 'models':
+            from younger_apps_dl.models import MODEL_REGISTRY
+            registry = MODEL_REGISTRY
 
-    if some_type == 'engines':
-        from younger_apps_dl.engines import ENGINE_REGISTRY
-        registry = ENGINE_REGISTRY
+        if some_type == 'datasets':
+            from younger_apps_dl.datasets import DATASET_REGISTRY
+            registry = DATASET_REGISTRY
 
-    if some_type == 'tasks':
-        from younger_apps_dl.tasks import TASK_REGISTRY
-        registry = TASK_REGISTRY
-
-    for kind, name2cls in registry.items():
         for name, cls in name2cls.items():
-            table_data.append([kind, name, cls.__name__])
+            table_data.append([name, cls.__name__])
 
-    if len(table_data) == 0:
-        print(f'{table_name}\'s Registry is Empty')
-    else:
-        print(f'{table_name}\'s Registry')
-        print(tabulate.tabulate(table_data, headers=['Kind', 'Name', 'Class'], tablefmt='grid'))
+        if len(table_data) == 0:
+            print(f'{table_name}\'s Registry is Empty')
+        else:
+            print(f'{table_name}\'s Registry')
+            print(tabulate.tabulate(table_data, headers=['Name', 'Class'], tablefmt='grid'))
+
+    if some_type in ['engines', 'tasks']:
+        if some_type == 'engines':
+            from younger_apps_dl.engines import ENGINE_REGISTRY
+            registry = ENGINE_REGISTRY
+
+        if some_type == 'tasks':
+            from younger_apps_dl.tasks import TASK_REGISTRY
+            registry = TASK_REGISTRY
+
+        for kind, name2cls in registry.items():
+            for name, cls in name2cls.items():
+                table_data.append([kind, name, cls.__name__])
+
+        if len(table_data) == 0:
+            print(f'{table_name}\'s Registry is Empty')
+        else:
+            print(f'{table_name}\'s Registry')
+            print(tabulate.tabulate(table_data, headers=['Kind', 'Name', 'Class'], tablefmt='grid'))
 
 
 @main.command(name='option')

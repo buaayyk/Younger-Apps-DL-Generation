@@ -6,7 +6,7 @@
 # Author: Jason Young (杨郑鑫).
 # E-Mail: AI.Jason.Young@outlook.com
 # Last Modified by: Jason Young (杨郑鑫)
-# Last Modified time: 2025-04-03 08:14:04
+# Last Modified time: 2025-04-03 12:13:21
 # Copyright (c) 2025 Yangs.AI
 # 
 # This source code is licensed under the Apache License 2.0 found in the
@@ -24,25 +24,16 @@ from pydantic import BaseModel, Field
 from torch.nn import Embedding
 from torch_geometric.nn import GINConv
 
-from younger_apps_dl.components import BaseComponent, register_component
+from younger_apps_dl.models import register_model
 
 
-class MAEGINOptions(BaseModel):
-    node_dict_size: int = Field(..., description='')
-    node_dim: int = Field(..., description='')
-    hidden_dim: int = Field(..., description='')
-    dropout: float = Field(..., description='')
-    layer_number: float = Field(3, description='')
-
-
-@register_component('model', 'maegin')
-class MAEGIN(BaseComponent[MAEGINOptions], nn.Module):
-    _options_ = MAEGINOptions
-    def __init__(self, configuration, node_dict_size, node_dim, hidden_dim, dropout, layer_number = 3):
-        super(MAEGIN, self).__init__(configuration)
-        self.encoder = MAEGINEncoder(node_dict_size, node_dim, hidden_dim, dropout, layer_number)
+@register_model('maegin')
+class MAEGIN(nn.Module):
+    def __init__(self, node_emb_size, node_emb_dim, hidden_dim, dropout_rate, layer_number):
+        super(MAEGIN, self).__init__()
+        self.encoder = MAEGINEncoder(node_emb_size, node_emb_dim, hidden_dim, dropout_rate, layer_number)
         self.project = nn.Linear(hidden_dim, hidden_dim, bias=False)
-        self.decoder = MAEGINDecoder(node_dict_size, hidden_dim)
+        self.decoder = MAEGINDecoder(node_emb_size, hidden_dim)
 
     def forward(self, x, edge_index):
         x = self.encoder(x, edge_index)
@@ -52,10 +43,9 @@ class MAEGIN(BaseComponent[MAEGINOptions], nn.Module):
 
 
 class MAEGINEncoder(nn.Module):
-
-    def __init__(self, node_dict_size, node_dim, hidden_dim, dropout, layer_number = 3):
+    def __init__(self, node_dict_size, node_dim, hidden_dim, dropout_rate, layer_number = 3):
         super(MAEGINEncoder, self).__init__()
-        self.dropout = dropout
+        self.dropout_rate = dropout_rate
 
         self.node_embedding_layer = Embedding(node_dict_size, node_dim)
 
@@ -72,13 +62,12 @@ class MAEGINEncoder(nn.Module):
     def forward(self, x, edge_index):
         x = self.node_embedding_layer(x).squeeze(1)
         for layer in self.layers:
-            x = F.dropout(x, p=self.dropout, training=self.training)
+            x = F.dropout(x, p=self.dropout_rate, training=self.training)
             x = layer(x, edge_index)
         return x
 
 
 class MAEGINDecoder(nn.Module):
-
     def __init__(self, node_dict_size, hidden_dim):
         super(MAEGINDecoder, self).__init__()
         self.gnn = GINConv(nn.Sequential(nn.Identity()))

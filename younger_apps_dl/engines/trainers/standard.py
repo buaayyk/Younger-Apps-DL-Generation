@@ -6,7 +6,7 @@
 # Author: Jason Young (杨郑鑫).
 # E-Mail: AI.Jason.Young@outlook.com
 # Last Modified by: Jason Young (杨郑鑫)
-# Last Modified time: 2025-04-02 23:06:16
+# Last Modified time: 2025-04-03 11:04:54
 # Copyright (c) 2024 Yangs.AI
 # 
 # This source code is licensed under the Apache License 2.0 found in the
@@ -37,34 +37,34 @@ from younger_apps_dl.engines import BaseEngine, register_engine
 
 class StandardTrainerOptions(BaseModel):
     # Checkpoint Options
-    checkpoint_savepath: str = Field(..., description="Directory path to save checkpoint.")
-    checkpoint_basename: str = Field('checkpoint', description="Base name of the checkpoint for save/load.")
-    checkpoint_keepdisk: int = Field(5, ge=1, description="Number of checkpoints to keep on disk.")
+    checkpoint_savepath: str = Field(..., description='Directory path to save checkpoint.')
+    checkpoint_basename: str = Field('checkpoint', description='Base name of the checkpoint for save/load.')
+    checkpoint_keepdisk: int = Field(5, ge=1, description='Number of checkpoints to keep on disk.')
 
     ## Resume Options
-    resume_loadpath: str  = Field('', description="Path to load checkpoint. If "", train from scratch.")
-    reset_iteration: bool = Field(True, description="Whether to reset the iteration status (epoch, step) when loading a checkpoint.")
-    reset_optimizer: bool = Field(True, description="Whether to reset the optimizer when loading a checkpoint.")
-    reset_scheduler: bool = Field(True, description="Whether to reset the scheduler when loading a checkpoint.")
+    resume_loadpath: str  = Field('', description='Path to load checkpoint. If "", train from scratch.')
+    reset_iteration: bool = Field(True, description='Whether to reset the iteration status (epoch, step) when loading a checkpoint.')
+    reset_optimizer: bool = Field(True, description='Whether to reset the optimizer when loading a checkpoint.')
+    reset_scheduler: bool = Field(True, description='Whether to reset the scheduler when loading a checkpoint.')
 
     # Iteration Options
-    seed: int = Field(3407, ge=0, description="Random seed for reproducibility.")
-    shuffle: bool = Field(True, description="Shuffle the training data each epoch.")
-    life_cycle: int = Field(100, ge=1, description="Lefe cycle of the training process (in epochs).")
+    seed: int = Field(3407, ge=0, description='Random seed for reproducibility.')
+    shuffle: bool = Field(True, description='Shuffle the training data each epoch.')
+    life_cycle: int = Field(100, ge=1, description='Lefe cycle of the training process (in epochs).')
 
-    report_period: int = Field(100, ge=1, description="Period (in steps) to report the training status.")
-    update_period: int = Field(1, ge=1, description="Period (in steps) to update the model parameters.")
-    saving_period: int = Field(1000, ge=1, description="Period (in steps) to save the model parameters.")
+    report_period: int = Field(100, ge=1, description='Period (in steps) to report the training status.')
+    update_period: int = Field(1, ge=1, description='Period (in steps) to update the model parameters.')
+    saving_period: int = Field(1000, ge=1, description='Period (in steps) to save the model parameters.')
 
-    train_batch_size: int = Field(32, ge=1, description="Batch size for training.")
-    valid_batch_size: int = Field(32, ge=1, description="Batch size for validation.")
+    train_batch_size: int = Field(32, ge=1, description='Batch size for training.')
+    valid_batch_size: int = Field(32, ge=1, description='Batch size for validation.')
 
     # Distribution Options
-    distributed: bool = Field(False, description="Whether to use distributed training. If False, the options about distributed training will take no effect.")
-    master_addr: str  = Field('localhost', description="Master address for distributed training.")
-    master_port: str  = Field('16161', description="Master port for distributed training.")
-    master_rank: int  = Field(0, ge=0, description="Master rank for distributed training. It should be < world_size and >= 0.")
-    node_number: int  = Field(2, gt=1, description="Number of devices participating in distributed training. It should be > 1.")
+    distributed: bool = Field(False, description='Whether to use distributed training. If False, the options about distributed training will take no effect.')
+    master_addr: str  = Field('localhost', description='Master address for distributed training.')
+    master_port: str  = Field('16161', description='Master port for distributed training.')
+    master_rank: int  = Field(0, ge=0, description='Master rank for distributed training. It should be < world_size and >= 0.')
+    node_number: int  = Field(2, gt=1, description='Number of devices participating in distributed training. It should be > 1.')
 
 
 @register_engine('trainer', 'standard')

@@ -6,7 +6,7 @@
 # Author: Jason Young (杨郑鑫).
 # E-Mail: AI.Jason.Young@outlook.com
 # Last Modified by: Jason Young (杨郑鑫)
-# Last Modified time: 2025-04-02 23:10:31
+# Last Modified time: 2025-04-03 14:11:43
 # Copyright (c) 2025 Yangs.AI
 # 
 # This source code is licensed under the Apache License 2.0 found in the
@@ -27,50 +27,27 @@ from younger.commons.io import load_pickle
 
 from younger_apps_dl.tasks import BaseTask, register_task
 from younger_apps_dl.engines import StandardTrainer, StandardEvaluator
-
-from younger_apps_dl.components.models import MAEGIN, MAEGINOptions
+from younger_apps_dl.datasets import MAEGIN
+from younger_apps_dl.models import MAEGIN
 
 
 class SubgraphEmbeddingOptions(BaseModel):
     # Main Options
-    logging_filepath: str = Field('./subgraph_embedding.log', description="Logging file path where logs will be saved, default to None, which may save to a default path that is determined by the Younger.")
+    logging_filepath: str = Field('./subgraph_embedding.log', description='Logging file path where logs will be saved, default to None, which may save to a default path that is determined by the Younger.')
 
-    mode: Literal['train', 'valid', 'test'] = Field(..., description='Mode of the Task: "train", "valid", and "test"')
+    stage: Literal['train', 'evaluate', 'preprocess'] = Field(..., description='Stage of the Task.')
 
-    model_type: Literal['MAEGIN']
-    maegin: 
-    train_dataset_dirpath: str = Field(..., description="Directory path to save checkpoint.")
+    trainer: StandardTrainer
+    evaluator: StandardEvaluator
+    preprocess: Sub
+
+
+    class ModelOptions(BaseModel):
+    model_config_filepath: Literal['MAEGIN']
+    maegin: MAEGINOptions = Field(MAEGINOptions(node_emb_size=-1), description='')
+
+    train_dataset_dirpath: str = Field(..., description='Directory path to save checkpoint.')
     valid_dataset_dirpath = 
-
-    # Checkpoint Options
-    checkpoint_savepath: str = Field(..., description="Directory path to save checkpoint.")
-    checkpoint_basename: str = Field('checkpoint', description="Base name of the checkpoint for save/load.")
-    checkpoint_keepdisk: int = Field(5, ge=1, description="Number of checkpoints to keep on disk.")
-
-    ## Resume Options
-    resume_loadpath: str  = Field('', description="Path to load checkpoint. If "", train from scratch.")
-    reset_iteration: bool = Field(True, description="Whether to reset the iteration status (epoch, step) when loading a checkpoint.")
-    reset_optimizer: bool = Field(True, description="Whether to reset the optimizer when loading a checkpoint.")
-    reset_scheduler: bool = Field(True, description="Whether to reset the scheduler when loading a checkpoint.")
-
-    # Iteration Options
-    seed: int = Field(3407, ge=0, description="Random seed for reproducibility.")
-    shuffle: bool = Field(True, description="Shuffle the training data each epoch.")
-    life_cycle: int = Field(100, ge=1, description="Lefe cycle of the training process (in epochs).")
-
-    report_period: int = Field(100, ge=1, description="Period (in steps) to report the training status.")
-    update_period: int = Field(1, ge=1, description="Period (in steps) to update the model parameters.")
-    saving_period: int = Field(1000, ge=1, description="Period (in steps) to save the model parameters.")
-
-    train_batch_size: int = Field(32, ge=1, description="Batch size for training.")
-    valid_batch_size: int = Field(32, ge=1, description="Batch size for validation.")
-
-    # Distribution Options
-    distributed: bool = Field(False, description="Whether to use distributed training. If False, the options about distributed training will take no effect.")
-    master_addr: str  = Field('localhost', description="Master address for distributed training.")
-    master_port: str  = Field('16161', description="Master port for distributed training.")
-    master_rank: int  = Field(0, ge=0, description="Master rank for distributed training. It should be < world_size and >= 0.")
-    node_number: int  = Field(2, gt=1, description="Number of devices participating in distributed training. It should be > 1.")
 
 
 # Self-Supervised Learning for Node Prediction
