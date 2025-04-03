@@ -6,7 +6,7 @@
 # Author: Jason Young (杨郑鑫).
 # E-Mail: AI.Jason.Young@outlook.com
 # Last Modified by: Jason Young (杨郑鑫)
-# Last Modified time: 2025-04-02 23:15:09
+# Last Modified time: 2025-04-03 08:14:04
 # Copyright (c) 2025 Yangs.AI
 # 
 # This source code is licensed under the Apache License 2.0 found in the
@@ -28,14 +28,18 @@ from younger_apps_dl.components import BaseComponent, register_component
 
 
 class MAEGINOptions(BaseModel):
-    node_dict_size: int = Field()
+    node_dict_size: int = Field(..., description='')
+    node_dim: int = Field(..., description='')
+    hidden_dim: int = Field(..., description='')
+    dropout: float = Field(..., description='')
+    layer_number: float = Field(3, description='')
 
 
 @register_component('model', 'maegin')
-class MAEGIN(BaseComponent, nn.Module):
+class MAEGIN(BaseComponent[MAEGINOptions], nn.Module):
     _options_ = MAEGINOptions
-    def __init__(self, node_dict_size, node_dim, hidden_dim, dropout, layer_number = 3):
-        super(MAEGIN, self).__init__()
+    def __init__(self, configuration, node_dict_size, node_dim, hidden_dim, dropout, layer_number = 3):
+        super(MAEGIN, self).__init__(configuration)
         self.encoder = MAEGINEncoder(node_dict_size, node_dim, hidden_dim, dropout, layer_number)
         self.project = nn.Linear(hidden_dim, hidden_dim, bias=False)
         self.decoder = MAEGINDecoder(node_dict_size, hidden_dim)
