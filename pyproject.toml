@@ -3,8 +3,8 @@ requires = ["setuptools"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
-include = ["younger_apps_dl"]
-exclude = ["tests", "third_parties"]
+include = ["younger_apps_dl*"]
+exclude = ["tests*", "third_parties*"]
 
 [project]
 name = "Younger-Apps-DL"
@@ -40,9 +40,8 @@ dependencies = [
     "younger",
     "tabulate",
     "networkx",
-    "scikit-learn"
+    "scikit-learn",
     "torch-geometric",
-    "younger-logics-ir",
     "python-semantic-release",
 ]
 
