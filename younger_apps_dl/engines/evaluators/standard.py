@@ -6,7 +6,7 @@
 # Author: Jason Young (杨郑鑫).
 # E-Mail: AI.Jason.Young@outlook.com
 # Last Modified by: Jason Young (杨郑鑫)
-# Last Modified time: 2025-04-03 11:06:21
+# Last Modified time: 2025-04-08 21:29:13
 # Copyright (c) 2024 Yangs.AI
 # 
 # This source code is licensed under the Apache License 2.0 found in the
@@ -21,6 +21,7 @@ import pathlib
 from typing import Any, Literal, Callable
 from pydantic import BaseModel, Field
 
+from younger_apps_dl.commons.utils import get_device_descriptor
 from younger_apps_dl.commons.logging import equip_logger, logger
 from younger_apps_dl.commons.checkpoint import load_checkpoint
 
@@ -29,7 +30,7 @@ from younger_apps_dl.engines import BaseEngine, register_engine
 
 class StandardEvaluatorOptions(BaseModel):
     # Checkpoint Options
-    checkpoint_filepath: str  = Field(..., description='Path to load checkpoint.')
+    checkpoint_filepath: pathlib.Path  = Field(..., description='Path to load checkpoint.')
 
     # Iteration Options
     batch_size: int = Field(32, ge=1, description='Batch size for validation.')
@@ -37,57 +38,62 @@ class StandardEvaluatorOptions(BaseModel):
 
 @register_engine('evaluator', 'standard')
 class StandardEvaluator(BaseEngine[StandardEvaluatorOptions]):
-    _options_ = StandardEvaluatorOptions
-
-    def __init__(
-        self,
-        configuration: dict,
-        model: torch.nn.Module,
-        dataset: torch.utils.data.Dataset,
-        evaluate_fn: Callable[[torch.nn.Module, Any], tuple[list[str], list[torch.Tensor], list[Callable[[float], str]]]],
-        dataloader: Literal['pth', 'pyg'] = 'pth',
-        logging_filepath: pathlib.Path | None = None,
-    ):
-        super().__init__(configuration)
-        self.model = model
-        self.dataset = dataset
-        self.evaluate_fn = evaluate_fn
-        self.dataloader = dataloader
-        self.logging_filepath = logging_filepath
+    OPTIONS = StandardEvaluatorOptions
 
     def log(self, metric_names: list[str], metric_values: list[torch.Tensor], metric_formats: list[Callable[[float], str]]) -> None:
         logs = list()
         for metric_name, metric_value, metric_format in zip(metric_names, metric_values, metric_formats):
             logs.append(f'[{metric_name}]={metric_format(float(metric_value / self.options.node_number))}')
-        logger.info(f'Evaluation Results - {' '.join(logs)}')
+        logger.info(f'Evaluation Results - {" ".join(logs)}')
 
-    def run(self):
-        equip_logger(self.logging_filepath)
-        checkpoint = load_checkpoint(pathlib.Path(self.options.checkpoint_filepath))
+    def run(
+        self,
+        model: torch.nn.Module,
+        dataset: torch.utils.data.Dataset,
+        evaluate_fn: Callable[[torch.nn.Module, Any], tuple[list[str], list[torch.Tensor], list[Callable[[float], str]]]],
+        dataloader_type: Literal['pth', 'pyg'] = 'pth',
+        logging_filepath: pathlib.Path | None = None,
+    ) -> None:
+        equip_logger(logging_filepath)
+        checkpoint = load_checkpoint(self.options.checkpoint_filepath)
+
+        device_descriptor = get_device_descriptor('GPU', 0)
+        model.to(device=device_descriptor)
 
         logger.info(f'-> Checkpoint from [Epoch/Step/Itr]@[{checkpoint.epoch}/{checkpoint.step}/{checkpoint.itr}].')
 
         logger.info(f'    v Loading Parameters ...')
-        self.model.load_state_dict(checkpoint.model_state_dict)
+        model.load_state_dict(checkpoint.model_state_dict)
         logger.info(f'    ^ Loaded.')
 
-        self.evaluate()
+        self.evaluate(
+            model,
+            dataset,
+            evaluate_fn,
+            dataloader_type
+        )
 
-    def evaluate(self):
-        if self.dataloader == 'pth':
+    def evaluate(
+        self,
+        model: torch.nn.Module,
+        dataset: torch.utils.data.Dataset,
+        evaluate_fn: Callable[[torch.nn.Module, Any], tuple[list[str], list[torch.Tensor], list[Callable[[float], str]]]],
+        dataloader_type: Literal['pth', 'pyg'] = 'pth',
+    ) -> None:
+        if dataloader_type == 'pth':
             from torch.utils.data import DataLoader
-        if self.dataloader == 'pyg':
+        if dataloader_type == 'pyg':
             from torch_geometric.loader import DataLoader
 
-        dataloader = DataLoader(self.dataset, batch_size=self.options.batch_size, shuffle=False)
+        dataloader = DataLoader(dataset, batch_size=self.options.batch_size, shuffle=False)
 
-        logger.info(f'-> Dataset Size: {len(self.dataset)} | Batch Size: {self.options.batch_size} | Iteration Size: {len(dataloader)}')
+        logger.info(f'-> Dataset Size: {len(dataset)} | Batch Size: {self.options.batch_size} | Iteration Size: {len(dataloader)}')
 
         logger.info(f'-> Evaluating ...')
         tic = time.time()
-        self.model.eval()
+        model.eval()
         with torch.no_grad():
-            metric_names, metric_values, metric_formats = self.evaluate_fn(self.model, dataloader)
+            metric_names, metric_values, metric_formats = evaluate_fn(model, dataloader)
             self.log(metric_names, metric_values, metric_formats)
 
         toc = time.time()

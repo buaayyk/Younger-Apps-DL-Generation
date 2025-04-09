@@ -6,7 +6,7 @@
 # Author: Jason Young (杨郑鑫).
 # E-Mail: AI.Jason.Young@outlook.com
 # Last Modified by: Jason Young (杨郑鑫)
-# Last Modified time: 2025-04-07 20:08:44
+# Last Modified time: 2025-04-08 23:04:34
 # Copyright (c) 2025 Yangs.AI
 # 
 # This source code is licensed under the Apache License 2.0 found in the
@@ -187,7 +187,7 @@ class GraphDataset(Dataset):
         # ID in Dict
         node_indices_in_dict = list()
         for node_index_in_dag in node_indices_in_dag:
-            node_uuid = logicx.dag.nodes[node_index_in_dag]['uuid']
+            node_uuid = logicx.dag.nodes[node_index_in_dag]['node_uuid']
             if node_uuid in dicts['t2i']:
                 node_index_in_dict = [dicts['t2i'][node_uuid]]
             else:
@@ -210,8 +210,9 @@ class GraphDataset(Dataset):
     def process_graph_level(cls, logicx: LogicX, nxid2pgid: dict[str, int]) -> torch.Tensor:
         # Shape: [#Node, 1]
 
-        level = torch.empty((logicx.dag.number_of_nodes(), 1), dtype=torch.long)
+        level = list()
         node_indices_in_dag: list[str] = sorted(list(logicx.dag.nodes), key=lambda x: nxid2pgid[x])
         for index, node_index_in_dag in enumerate(node_indices_in_dag):
-            level[index] = logicx.dag.nodes[node_index_in_dag]['level']
+            level.append([logicx.dag.nodes[node_index_in_dag]['level']])
+        level = torch.tensor(level, dtype=torch.long)
         return level

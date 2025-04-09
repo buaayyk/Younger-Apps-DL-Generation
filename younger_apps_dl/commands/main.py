@@ -6,7 +6,7 @@
 # Author: Jason Young (杨郑鑫).
 # E-Mail: AI.Jason.Young@outlook.com
 # Last Modified by: Jason Young (杨郑鑫)
-# Last Modified time: 2025-04-03 11:36:16
+# Last Modified time: 2025-04-08 18:19:55
 # Copyright (c) 2024 Yangs.AI
 # 
 # This source code is licensed under the Apache License 2.0 found in the
@@ -106,11 +106,11 @@ def option(some_kind, some_name):
 
 
 @main.command(name='launch')
-@click.option('--task-kind',        required=True,  type=str, help='Indicates the type of task.')
-@click.option('--task-name',        required=True,  type=str, help='Indicates the name of task.')
-@click.option('--task-step',        required=True,  type=click.Choice(['train', 'evaluate', 'predict', 'preprocess', 'postprocess'], case_sensitive=True), help='Indicates the step of task.')
-@click.option('--options-filepath', required=False, type=click.Path(exists=False, file_okay=True, dir_okay=False, path_type=pathlib.Path), default=None, help='Path to the options file; if not provided, default options will be used.')
-def launch(task_kind, task_name, task_step, options_filepath):
+@click.option('--task-kind',        required=True, type=str, help='Indicates the type of task.')
+@click.option('--task-name',        required=True, type=str, help='Indicates the name of task.')
+@click.option('--task-step',        required=True, type=click.Choice(['train', 'evaluate', 'predict', 'preprocess', 'postprocess'], case_sensitive=True), help='Indicates the step of task.')
+@click.option('--toml-path', required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False, path_type=pathlib.Path), default=None, help='Path to the configuration file.')
+def launch(task_kind, task_name, task_step, toml_path):
     """
     _summary_
 
@@ -132,7 +132,7 @@ def launch(task_kind, task_name, task_step, options_filepath):
         click.echo(f'No <{task_kind}, {task_name}> Task in Task Registry.')
         raise exception
 
-    task = Task(load_toml(options_filepath))
+    task = Task(Task.OPTIONS(**load_toml(toml_path)))
     if task_step == 'train':
         task.train()
 

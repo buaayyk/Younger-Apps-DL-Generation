@@ -6,7 +6,7 @@
 # Author: Jason Young (杨郑鑫).
 # E-Mail: AI.Jason.Young@outlook.com
 # Last Modified by: Jason Young (杨郑鑫)
-# Last Modified time: 2025-04-03 12:12:00
+# Last Modified time: 2025-04-08 18:16:26
 # Copyright (c) 2025 Yangs.AI
 # 
 # This source code is licensed under the Apache License 2.0 found in the
@@ -23,8 +23,8 @@ MODEL_REGISTRY: dict[ str, Type[torch.nn.Module] ] = dict()
 
 
 def register_model(name: str):
-    assert name not in MODEL_REGISTRY[name]
-    def wrapper(cls: Type[torch.nn.Module]) -> Type[torch.nn.Module]:
+    assert name not in MODEL_REGISTRY
+    def wrapper(cls):
         MODEL_REGISTRY[name] = cls
         return cls
     return wrapper

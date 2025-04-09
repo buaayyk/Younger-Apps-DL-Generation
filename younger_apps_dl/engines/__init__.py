@@ -6,7 +6,7 @@
 # Author: Jason Young (杨郑鑫).
 # E-Mail: AI.Jason.Young@outlook.com
 # Last Modified by: Jason Young (杨郑鑫)
-# Last Modified time: 2025-02-23 16:29:54
+# Last Modified time: 2025-04-08 18:46:20
 # Copyright (c) 2025 Yangs.AI
 # 
 # This source code is licensed under the Apache License 2.0 found in the
@@ -17,15 +17,15 @@
 from abc import ABC, abstractmethod
 from typing import Literal, Type
 
-from younger_apps_dl.commons.mixins.options import OptionsMixin, OptionsType
+from younger_apps_dl.commons.mixins.options import OptionsMixin, OPTIONS_TYPE
 
 
-class BaseEngine(OptionsMixin[OptionsType], ABC):
-    def __init__(self, configuration: dict) -> None:
-        super().__init__(configuration)
+class BaseEngine(OptionsMixin[OPTIONS_TYPE], ABC):
+    def __init__(self, options: OPTIONS_TYPE):
+        super().__init__(options)
 
     @abstractmethod
-    def run(self):
+    def run(self, *args, **kwargs):
         pass
 
 
@@ -44,8 +44,8 @@ def register_engine(
 ):
     assert kind in {'trainer', 'evaluator', 'predictor', 'preprocessor', 'postprocessor'}
     assert name not in ENGINE_REGISTRY[kind]
-    def wrapper(cls: Type[BaseEngine]) -> Type[BaseEngine]:
-        assert issubclass(cls, Type[BaseEngine])
+    def wrapper(cls):
+        assert issubclass(cls, BaseEngine)
         ENGINE_REGISTRY[kind][name] = cls
         return cls
     return wrapper

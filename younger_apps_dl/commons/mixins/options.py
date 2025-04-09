@@ -6,7 +6,7 @@
 # Author: Jason Young (杨郑鑫).
 # E-Mail: AI.Jason.Young@outlook.com
 # Last Modified by: Jason Young (杨郑鑫)
-# Last Modified time: 2025-02-23 16:29:37
+# Last Modified time: 2025-04-08 17:56:29
 # Copyright (c) 2025 Yangs.AI
 # 
 # This source code is licensed under the Apache License 2.0 found in the
@@ -14,25 +14,25 @@
 ########################################################################
 
 
-from typing import Type, TypeVar, Generic
-from pydantic import BaseModel, ValidationError
+from typing import Type, TypeVar, ClassVar, Generic
+from pydantic import BaseModel
 
 
-OptionsType = TypeVar('T', bound=BaseModel)
+OPTIONS_TYPE = TypeVar('OPTIONS_TYPE', bound=BaseModel)
 
-class OptionsMixin(Generic[OptionsType]):
-    _options_: Type[OptionsType] = None
+class OptionsMixin(Generic[OPTIONS_TYPE]):
+    OPTIONS: ClassVar[Type[OPTIONS_TYPE]]
 
-    def __init__(self, **options):
-        if self.__class__._options_ is None:
-            raise NotImplementedError(f'Classes with this `OptionsMixin` must implement a corresponding configuration class and define it as a class attribute.')
+    def __init__(self, options: OPTIONS_TYPE):
+        if self.__class__.OPTIONS is None:
+            raise NotImplementedError(f'Classes with this `OptionsMixin` must implement a corresponding OPTIONS class and define it as a class attribute.')
 
-        try:
-            self._options = self.__class__._options_(**options)
-        except ValidationError as exception:
-            raise ValueError(f"Invalid `options` for {self.__class__.__name__}: {exception}")
+        if not isinstance(options, self.__class__.OPTIONS):
+            raise TypeError(f"Expected options of type {self.__class__.OPTIONS.__name__}, but got {type(options).__name__}")
+
+        self._options_ = options
         super().__init__()
 
     @property
-    def options(self) -> OptionsType:
-        return self._options
+    def options(self) -> OPTIONS_TYPE:
+        return self._options_

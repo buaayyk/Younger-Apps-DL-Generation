@@ -6,7 +6,7 @@
 # Author: Jason Young (杨郑鑫).
 # E-Mail: AI.Jason.Young@outlook.com
 # Last Modified by: Jason Young (杨郑鑫)
-# Last Modified time: 2025-04-03 12:12:22
+# Last Modified time: 2025-04-08 18:16:07
 # Copyright (c) 2025 Yangs.AI
 # 
 # This source code is licensed under the Apache License 2.0 found in the
@@ -23,8 +23,8 @@ DATASET_REGISTRY: dict[ str, Type[torch.utils.data.Dataset] ] = dict()
 
 
 def register_dataset(name: str):
-    assert name not in DATASET_REGISTRY[name]
-    def wrapper(cls: Type[torch.utils.data.Dataset]) -> Type[torch.utils.data.Dataset]:
+    assert name not in DATASET_REGISTRY
+    def wrapper(cls):
         DATASET_REGISTRY[name] = cls
         return cls
     return wrapper

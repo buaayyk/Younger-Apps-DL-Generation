@@ -6,7 +6,7 @@
 # Author: Jason Young (杨郑鑫).
 # E-Mail: AI.Jason.Young@outlook.com
 # Last Modified by: Jason Young (杨郑鑫)
-# Last Modified time: 2025-02-23 16:45:18
+# Last Modified time: 2025-04-08 18:28:31
 # Copyright (c) 2024 - 2025 Yangs.AI
 # 
 # This source code is licensed under the Apache License 2.0 found in the
@@ -19,12 +19,12 @@ from typing import Literal, Type
 
 from younger.commons.logging import Logger
 
-from younger_apps_dl.commons.mixins.options import OptionsMixin, OptionsType
+from younger_apps_dl.commons.mixins.options import OptionsMixin, OPTIONS_TYPE
 
 
-class BaseTask(OptionsMixin[OptionsType], ABC):
-    def __init__(self, configuration: dict) -> None:
-        super().__init__(configuration)
+class BaseTask(OptionsMixin[OPTIONS_TYPE], ABC):
+    def __init__(self, options: OPTIONS_TYPE):
+        super().__init__(options)
 
     def train(self):
         raise NotImplementedError
@@ -54,7 +54,7 @@ def register_task(
 ):
     assert kind in {'ir', 'core'}
     assert name not in TASK_REGISTRY[kind]
-    def wrapper(cls: Type[BaseTask]) -> Type[BaseTask]:
+    def wrapper(cls):
         assert issubclass(cls, BaseTask)
         TASK_REGISTRY[kind][name] = cls
         return cls
