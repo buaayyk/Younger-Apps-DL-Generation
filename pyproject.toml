@@ -42,6 +42,7 @@ dependencies = [
     "networkx",
     "scikit-learn",
     "torch-geometric",
+    "younger-logics-ir",
     "python-semantic-release",
 ]
 

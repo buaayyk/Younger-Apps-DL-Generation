@@ -6,7 +6,7 @@
 # Author: Jason Young (杨郑鑫).
 # E-Mail: AI.Jason.Young@outlook.com
 # Last Modified by: Jason Young (杨郑鑫)
-# Last Modified time: 2025-04-09 09:59:46
+# Last Modified time: 2025-04-09 10:07:45
 # Copyright (c) 2025 Yangs.AI
 # 
 # This source code is licensed under the Apache License 2.0 found in the
@@ -22,7 +22,6 @@ import pathlib
 
 from typing import Literal, Callable, Iterable
 from pydantic import BaseModel, Field
-from collections import OrderedDict
 from sklearn.metrics import f1_score, precision_score, recall_score, accuracy_score, top_k_accuracy_score
 
 from younger_apps_dl.tasks import BaseTask, register_task
@@ -102,7 +101,7 @@ class GraphEmbedding(BaseTask[GraphEmbeddingOptions]):
             self.options.valid_dataset.raw_dirpath,
             self.options.valid_dataset.processed_dirpath,
             'valid',
-            self.options.valid_dataset.processed_dirpath
+            self.options.valid_dataset.worker_number
         )
         self.model = self._build_model_(
             len(self.train_dataset.dicts['i2t']),
@@ -150,7 +149,7 @@ class GraphEmbedding(BaseTask[GraphEmbeddingOptions]):
             self.options.test_dataset.raw_dirpath,
             self.options.test_dataset.processed_dirpath,
             'test',
-            self.options.test_dataset.processed_dirpath
+            self.options.test_dataset.worker_number
         )
         self.model = self._build_model_(
             len(self.test_dataset.dicts['i2t']),
