@@ -6,7 +6,7 @@
 # Author: Jason Young (杨郑鑫).
 # E-Mail: AI.Jason.Young@outlook.com
 # Last Modified by: Jason Young (杨郑鑫)
-# Last Modified time: 2025-04-08 18:19:55
+# Last Modified time: 2025-04-11 17:01:37
 # Copyright (c) 2024 Yangs.AI
 # 
 # This source code is licensed under the Apache License 2.0 found in the
@@ -20,7 +20,7 @@ import tabulate
 
 from typing import Literal
 
-from younger.commons.io import load_toml
+from younger.commons.io import load_toml, save_plain
 
 from younger_apps_dl.commons.help import generate_helping_for_pydantic_model
 
@@ -51,7 +51,7 @@ def glance(some_type: Literal['models', 'datasets', 'engines', 'tasks']):
             from younger_apps_dl.datasets import DATASET_REGISTRY
             registry = DATASET_REGISTRY
 
-        for name, cls in name2cls.items():
+        for name, cls in registry.items():
             table_data.append([name, cls.__name__])
 
         if len(table_data) == 0:
@@ -81,9 +81,10 @@ def glance(some_type: Literal['models', 'datasets', 'engines', 'tasks']):
 
 
 @main.command(name='option')
-@click.option('--task-kind', required=True,  type=str, help='Indicates the type of task.')
-@click.option('--task-name', required=True,  type=str, help='Indicates the name of task.')
-def option(some_kind, some_name):
+@click.option('--task-kind', required=True, type=str, help='Indicates the type of task.')
+@click.option('--task-name', required=True, type=str, help='Indicates the name of task.')
+@click.option('--toml-path', required=True, type=click.Path(exists=False, file_okay=True, dir_okay=False, path_type=pathlib.Path), default=None, help='Path to the configuration file.')
+def option(task_kind, task_name, toml_path):
     """
     _summary_
 
@@ -96,19 +97,20 @@ def option(some_kind, some_name):
 
     from younger_apps_dl.tasks import TASK_REGISTRY
     try:
-        Task = TASK_REGISTRY[some_kind][some_name]
+        Task = TASK_REGISTRY[task_kind][task_name]
     except Exception as exception:
-        click.echo(f'No <{some_kind}, {some_name}> Task in Task Registry.')
+        click.echo(f'No <{task_kind}, {task_name}> Task in Task Registry.')
         raise exception
-    
-    helping = generate_helping_for_pydantic_model(Task._options_)
-    print(helping)
+
+    helping_lines = generate_helping_for_pydantic_model(Task.OPTIONS)
+    helping = '\n'.join(helping_lines)
+    save_plain(helping, toml_path)
 
 
 @main.command(name='launch')
-@click.option('--task-kind',        required=True, type=str, help='Indicates the type of task.')
-@click.option('--task-name',        required=True, type=str, help='Indicates the name of task.')
-@click.option('--task-step',        required=True, type=click.Choice(['train', 'evaluate', 'predict', 'preprocess', 'postprocess'], case_sensitive=True), help='Indicates the step of task.')
+@click.option('--task-kind', required=True, type=str, help='Indicates the type of task.')
+@click.option('--task-name', required=True, type=str, help='Indicates the name of task.')
+@click.option('--task-step', required=True, type=click.Choice(['train', 'evaluate', 'predict', 'preprocess', 'postprocess'], case_sensitive=True), help='Indicates the step of task.')
 @click.option('--toml-path', required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False, path_type=pathlib.Path), default=None, help='Path to the configuration file.')
 def launch(task_kind, task_name, task_step, toml_path):
     """

@@ -6,7 +6,7 @@
 # Author: Jason Young (杨郑鑫).
 # E-Mail: AI.Jason.Young@outlook.com
 # Last Modified by: Jason Young (杨郑鑫)
-# Last Modified time: 2025-04-09 10:07:45
+# Last Modified time: 2025-04-11 12:12:02
 # Copyright (c) 2025 Yangs.AI
 # 
 # This source code is licensed under the Apache License 2.0 found in the
@@ -17,7 +17,9 @@
 import math
 import tqdm
 import torch
+import bisect
 import random
+import pandas
 import pathlib
 
 from typing import Literal, Callable, Iterable
@@ -25,7 +27,7 @@ from pydantic import BaseModel, Field
 from sklearn.metrics import f1_score, precision_score, recall_score, accuracy_score, top_k_accuracy_score
 
 from younger_apps_dl.tasks import BaseTask, register_task
-from younger_apps_dl.engines import StandardTrainer, StandardTrainerOptions, StandardEvaluator, StandardEvaluatorOptions, GraphSplit, GraphSplitOptions
+from younger_apps_dl.engines import StandardTrainer, StandardTrainerOptions, StandardEvaluator, StandardEvaluatorOptions, StandardPredictor, StandardPredictorOptions, GraphSplit, GraphSplitOptions
 from younger_apps_dl.datasets import GraphDataset, GraphData
 from younger_apps_dl.models import MAEGIN
 
@@ -59,13 +61,14 @@ class DatasetOptions(BaseModel):
     worker_number: int = Field(4, description='Number of workers for parallel data loading or processing.')
 
 
-class GraphEmbeddingOptions(BaseModel):
+class BasicEmbeddingOptions(BaseModel):
     # Main Options
     logging_filepath: pathlib.Path | None = Field(None, description='Logging file path where logs will be saved, default to None, which may save to a default path that is determined by the Younger.')
 
     scheduled_sampling: bool = Field(False, description='')
     scheduled_sampling_fixed: bool = Field(True, description='')
-    scheduled_sampling_level: int = Field(False, description='')
+    scheduled_sampling_cycle: list[int] = Field([100], description='')
+    scheduled_sampling_level: list[int] = Field([0], description='')
     scheduled_sampling_ratio: float = Field(0.15, description='')
     scheduled_sampling_micro: float = Field(12, description='')
     mask_ratio: float = Field(..., description='')
@@ -73,6 +76,7 @@ class GraphEmbeddingOptions(BaseModel):
 
     trainer: StandardTrainerOptions
     evaluator: StandardEvaluatorOptions
+    predictor: StandardPredictorOptions
     preprocessor: GraphSplitOptions
 
     train_dataset: DatasetOptions
@@ -85,9 +89,9 @@ class GraphEmbeddingOptions(BaseModel):
 
 
 # Self-Supervised Learning for Node Prediction
-@register_task('ir', 'graph_embedding')
-class GraphEmbedding(BaseTask[GraphEmbeddingOptions]):
-    OPTIONS = GraphEmbeddingOptions
+@register_task('ir', 'basic_embedding')
+class BasicEmbedding(BaseTask[BasicEmbeddingOptions]):
+    OPTIONS = BasicEmbeddingOptions
     def train(self):
         self.train_dataset = self._build_dataset_(
             self.options.train_dataset.meta_filepath,
@@ -169,6 +173,14 @@ class GraphEmbedding(BaseTask[GraphEmbeddingOptions]):
             self.options.logging_filepath
         )
 
+    def predict(self):
+        predictor = StandardPredictor(self.options.predictor)
+        predictor.run(
+            self.model,
+            self._predict_raw_fn_,
+            self.options.logging_filepath
+        )
+
     def preprocess(self):
         preprocessor = GraphSplit(self.options.preprocessor)
         preprocessor.run(self.options.logging_filepath)
@@ -237,18 +249,19 @@ class GraphEmbedding(BaseTask[GraphEmbeddingOptions]):
         x, edge_index, golden = self._mask_(minibatch, self.dicts['t2i'], self.options.mask_ratio, self.options.mask_method)
 
         if self.options.scheduled_sampling:
-            scheduled_sampling_levels = []
+            scheduled_sampling_levels = list()
             # Only For -N, ..., -3, -2, -1
-            for i in range(-self.options.scheduled_sampling_level, 0):
+            for i in range(-self.scheduled_sampling_level_at_epoch, 0):
                 if random.random() <= self.scheduled_sampling_ratio_at_epoch:
                     scheduled_sampling_levels.append(i)
 
-            model.eval()
-            with torch.no_grad():
-                x, predict = self._simulate_predict_(model, minibatch, self.dicts['t2i'], scheduled_sampling_levels)
+            if len(scheduled_sampling_levels):
+                model.eval()
+                with torch.no_grad():
+                    x, predict = self._simulate_predict_(model, minibatch, self.dicts['t2i'], scheduled_sampling_levels)
 
-            model.train()
-            x = x.detach()
+                model.train()
+                x = x.detach()
 
         output = model(x, edge_index)
         loss = torch.nn.functional.cross_entropy(output, golden.squeeze(1), ignore_index=-1)
@@ -260,21 +273,20 @@ class GraphEmbedding(BaseTask[GraphEmbeddingOptions]):
         outputs = list()
         goldens = list()
         # Return Output & Golden
-        with torch.no_grad():
-            with tqdm.tqdm(total=len(dataloader)) as progress_bar:
-                for index, minibatch in enumerate(dataloader, start=1):
-                    minibatch: GraphData = minibatch.to(device_descriptor)
+        with tqdm.tqdm(total=len(dataloader)) as progress_bar:
+            for index, minibatch in enumerate(dataloader, start=1):
+                minibatch: GraphData = minibatch.to(device_descriptor)
 
-                    if self.options.scheduled_sampling:
-                        x, edge_index, golden = self._mask_(minibatch, self.dicts['t2i'], 1, self.options.mask_method, test=True)
-                        x, output = self._simulate_predict_(model, minibatch, self.dicts['t2i'], range(-self.options.scheduled_sampling_level, 0), test=True)
-                    else:
-                        x, edge_index, golden = self._mask_(minibatch, self.dicts['t2i'], self.options.mask_ratio, self.options.mask_method)
-                        output = torch.softmax(model(x, edge_index), dim=-1)
+                if self.options.scheduled_sampling:
+                    x, edge_index, golden = self._mask_(minibatch, self.dicts['t2i'], 1, self.options.mask_method, test=True)
+                    x, output = self._simulate_predict_(model, minibatch, self.dicts['t2i'], range(-self.options.scheduled_sampling_level, 0), test=True)
+                else:
+                    x, edge_index, golden = self._mask_(minibatch, self.dicts['t2i'], self.options.mask_ratio, self.options.mask_method)
+                    output = torch.softmax(model(x, edge_index), dim=-1)
 
-                    outputs.append(output)
-                    goldens.append(golden)
-                    progress_bar.update(1)
+                outputs.append(output)
+                goldens.append(golden)
+                progress_bar.update(1)
 
         outputs = torch.cat(outputs)
         goldens = torch.cat(goldens).squeeze()
@@ -312,6 +324,10 @@ class GraphEmbedding(BaseTask[GraphEmbeddingOptions]):
         return
 
     def _on_epoch_begin_fn_(self, epoch: int) -> None:
+        ssc = self.options.scheduled_sampling_cycle
+        assert all(ssc[i] < ssc[i+1] for i in range(len(ssc) - 1)), "Scheduled Sampling Cycle Must Be Strictly Increasing."
+        i = min(bisect.bisect_left(ssc, epoch), len(ssc) - 1)
+        self.scheduled_sampling_level_at_epoch = self.options.scheduled_sampling_level[i]
         if self.options.scheduled_sampling_fixed:
             r = self.options.scheduled_sampling_ratio
             self.scheduled_sampling_ratio_at_epoch = r
@@ -393,3 +409,49 @@ class GraphEmbedding(BaseTask[GraphEmbeddingOptions]):
             x[predict_nodes] = output[old2new[predict_nodes]]
             predict[predict_nodes] = changed_predict[old2new[predict_nodes]]
             return x, predict
+
+    def _predict_raw_fn_(self, model: torch.nn.Module, load_dirpath: pathlib.Path, save_dirpath: pathlib.Path):
+        logicx_filepaths = [logicx_filepath for logicx_filepath in load_dirpath.joinpath('logicxs')]
+        dicts = GraphDataset.load_dicts(GraphDataset.load_meta(load_dirpath.joinpath('meta.json')))
+        device_descriptor = next(model.parameters()).device
+
+        from torch_geometric.loader import NeighborLoader
+        from torch_geometric.nn import global_mean_pool
+
+        from younger_logics_ir.modules import LogicX
+
+        graph_hashes = list()
+        graph_embeddings = list()
+        for logicx_filepath in logicx_filepaths:
+            logicx = LogicX()
+            logicx.load(logicx_filepath)
+            graph_hashes.append(LogicX.hash(logicx))
+
+            data = GraphDataset.process_graph_data(logicx, dicts)
+            loader = NeighborLoader(
+                data,
+                num_neighbors=[-1] * len(model.encoder.layers),
+                batch_size=512,
+                input_nodes=None,
+                subgraph_type="directional",
+                directed=True
+            )
+
+            embedding_dim = model.encoder.node_.embedding_layer.embedding_dim
+            graph_embedding = torch.zeros(embedding_dim, device=device_descriptor)
+            node_count = 0
+            for batch in loader:
+                batch: GraphData = batch.to(device_descriptor)
+                out = model.encoder(batch.x, batch.edge_index)               # shape: [total_nodes_in_batch, dim]
+                center_embeddings = out[:batch.batch_size]                   # shape: [batch_size, dim]
+                graph_embedding += center_embeddings.sum(dim=0)
+                node_count += center_embeddings.shape[0]
+            assert len(logicx.dag) == node_count
+            graph_embedding = (graph_embedding/node_count).detach().cpu().numpy().tolist()
+            graph_embeddings.append(graph_embedding)
+
+        emb_df = pandas.DataFrame(graph_embeddings, columns=[str(i) for i in range(embedding_dim)])
+        emb_df.to_csv(save_dirpath.joinpath("graph_embeddings.csv"), index=False)
+
+        hsh_df = pandas.DataFrame(graph_hashes, columns=["logicx_hash"])
+        hsh_df.to_csv(save_dirpath.joinpath("graph_hashes.csv"), index=False)

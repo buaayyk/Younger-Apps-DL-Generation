@@ -37,6 +37,7 @@ dependencies = [
     "tqdm",
     "torch",
     "click",
+    "pandas",
     "younger",
     "tabulate",
     "networkx",
