@@ -6,7 +6,7 @@
 # Author: Jason Young (杨郑鑫).
 # E-Mail: AI.Jason.Young@outlook.com
 # Last Modified by: Jason Young (杨郑鑫)
-# Last Modified time: 2025-04-12 23:00:09
+# Last Modified time: 2025-04-12 23:51:04
 # Copyright (c) 2025 Yangs.AI
 # 
 # This source code is licensed under the Apache License 2.0 found in the
@@ -202,7 +202,7 @@ class GraphSplit(BaseEngine[GraphSplitOptions]):
                     progress_bar.update(1)
 
         split_with_hashes = [
-            (split_hash, splits[split_size][split_hash])
+            (split_hash, splits[split_scale][split_hash])
             for split_scale, split_hashes_at_split_scale in split_hashes.items()
             for uuid, uuid_split_hashes_at_split_scale in split_hashes_at_split_scale.items()
             for index, split_hash in enumerate(uuid_split_hashes_at_split_scale)
