@@ -6,7 +6,7 @@
 # Author: Jason Young (杨郑鑫).
 # E-Mail: AI.Jason.Young@outlook.com
 # Last Modified by: Jason Young (杨郑鑫)
-# Last Modified time: 2025-04-11 12:12:02
+# Last Modified time: 2025-04-12 10:14:19
 # Copyright (c) 2025 Yangs.AI
 # 
 # This source code is licensed under the Apache License 2.0 found in the
@@ -411,7 +411,7 @@ class BasicEmbedding(BaseTask[BasicEmbeddingOptions]):
             return x, predict
 
     def _predict_raw_fn_(self, model: torch.nn.Module, load_dirpath: pathlib.Path, save_dirpath: pathlib.Path):
-        logicx_filepaths = [logicx_filepath for logicx_filepath in load_dirpath.joinpath('logicxs')]
+        logicx_filepaths = [logicx_filepath for logicx_filepath in load_dirpath.joinpath('logicxs').iterdir()]
         dicts = GraphDataset.load_dicts(GraphDataset.load_meta(load_dirpath.joinpath('meta.json')))
         device_descriptor = next(model.parameters()).device
 
@@ -450,8 +450,8 @@ class BasicEmbedding(BaseTask[BasicEmbeddingOptions]):
             graph_embedding = (graph_embedding/node_count).detach().cpu().numpy().tolist()
             graph_embeddings.append(graph_embedding)
 
-        emb_df = pandas.DataFrame(graph_embeddings, columns=[str(i) for i in range(embedding_dim)])
-        emb_df.to_csv(save_dirpath.joinpath("graph_embeddings.csv"), index=False)
-
         hsh_df = pandas.DataFrame(graph_hashes, columns=["logicx_hash"])
         hsh_df.to_csv(save_dirpath.joinpath("graph_hashes.csv"), index=False)
+
+        emb_df = pandas.DataFrame(graph_embeddings, columns=[str(i) for i in range(embedding_dim)])
+        emb_df.to_csv(save_dirpath.joinpath("graph_embeddings.csv"), index=False)
