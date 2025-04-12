@@ -6,7 +6,7 @@
 # Author: Jason Young (杨郑鑫).
 # E-Mail: AI.Jason.Young@outlook.com
 # Last Modified by: Jason Young (杨郑鑫)
-# Last Modified time: 2025-04-12 10:14:19
+# Last Modified time: 2025-04-12 11:34:41
 # Copyright (c) 2025 Yangs.AI
 # 
 # This source code is licensed under the Apache License 2.0 found in the
@@ -65,14 +65,14 @@ class BasicEmbeddingOptions(BaseModel):
     # Main Options
     logging_filepath: pathlib.Path | None = Field(None, description='Logging file path where logs will be saved, default to None, which may save to a default path that is determined by the Younger.')
 
-    scheduled_sampling: bool = Field(False, description='')
-    scheduled_sampling_fixed: bool = Field(True, description='')
-    scheduled_sampling_cycle: list[int] = Field([100], description='')
-    scheduled_sampling_level: list[int] = Field([0], description='')
-    scheduled_sampling_ratio: float = Field(0.15, description='')
-    scheduled_sampling_micro: float = Field(12, description='')
-    mask_ratio: float = Field(..., description='')
-    mask_method: Literal['Random', 'Purpose'] = Field(..., description='')
+    scheduled_sampling: bool = Field(False, description='Enable scheduled sampling during training to gradually shift from teacher forcing to model predictions.')
+    scheduled_sampling_fixed: bool = Field(True, description='Use a fixed scheduled sampling ratio instead of dynamic scheduling.')
+    scheduled_sampling_cycle: list[int] = Field([100], description='Training epochs at which to apply scheduled sampling updates in a cyclic manner.')
+    scheduled_sampling_level: list[int] = Field([0], description='Sampling level (e.g., prediction depth or difficulty) applied at each cycle stage.')
+    scheduled_sampling_ratio: float = Field(0.15, description='Initial probability of using model predictions instead of ground truth during training (between 0 and 1).')
+    scheduled_sampling_micro: float = Field(12, description='Fine-grained control parameter for micro-level scheduled sampling behavior (e.g., per-step adjustment).')
+    mask_ratio: float = Field(..., description='Ratio of elements (e.g., input tokens) to mask during training.')
+    mask_method: Literal['Random', 'Purpose'] = Field(..., description='Strategy for masking elements: \'Random\' for uniform masking, \'Purpose\' for task-specific or guided masking.')
 
     trainer: StandardTrainerOptions
     evaluator: StandardEvaluatorOptions

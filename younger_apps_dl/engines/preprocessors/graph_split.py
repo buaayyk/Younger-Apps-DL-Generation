@@ -6,7 +6,7 @@
 # Author: Jason Young (杨郑鑫).
 # E-Mail: AI.Jason.Young@outlook.com
 # Last Modified by: Jason Young (杨郑鑫)
-# Last Modified time: 2025-04-11 15:01:33
+# Last Modified time: 2025-04-12 12:18:45
 # Copyright (c) 2025 Yangs.AI
 # 
 # This source code is licensed under the Apache License 2.0 found in the
@@ -49,7 +49,7 @@ class GraphSplitOptions(BaseModel):
     split_scale: list[int] = Field(..., description='List of node counts to include in subgraph splits expanded from central nodes. Each value specifies a different subgraph split scale to generate.')
     split_count: int = Field(..., description='Number of subgraph splits to generate per central node.')
     split_tries: int = Field(..., description='Maximum number of attempts to generate `split_count` valid subgraphs (e.g., avoiding duplicates or undersized splits).')
-    split_limit: list[int] = Field(..., description='Maximum allowed size (in number of nodes) for a subgraph split. If a candidate subgraph exceeds this size, it will be discarded. '
+    split_limit: int = Field(..., description='Maximum allowed size (in number of nodes) for a subgraph split. If a candidate subgraph exceeds this size, it will be discarded. '
                                                     'This limit only applies to methods that involve the \'Window\' extraction strategy, including \'Window\' and mixed strategies \'MixSuper\'.')
 
     training_dataset_size: int = Field(..., description='Number of subgraphs splits to include in the training set.')
