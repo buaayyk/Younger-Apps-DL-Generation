@@ -6,7 +6,7 @@
 # Author: Jason Young (杨郑鑫).
 # E-Mail: AI.Jason.Young@outlook.com
 # Last Modified by: Jason Young (杨郑鑫)
-# Last Modified time: 2025-04-12 19:25:52
+# Last Modified time: 2025-04-12 19:28:12
 # Copyright (c) 2025 Yangs.AI
 # 
 # This source code is licensed under the Apache License 2.0 found in the
@@ -226,7 +226,7 @@ class GraphSplit(BaseEngine[GraphSplitOptions]):
 
         test_dataset_save_dirpath = self.options.save_dirpath.joinpath('test')
         logger.info(f'Saving \'Test\' Dataset into {test_dataset_save_dirpath.absolute()} ... ')
-        self.__class__.save_dataset(uuid_occurence, split_with_hashes[exact_training_dataset_size+exact_validation_dataset_size:], test_dataset_save_dirpath)
+        self.__class__.save_dataset(uuid_occurence, split_with_hashes[exact_training_dataset_size+exact_validation_dataset_size:exact_training_dataset_size+exact_validation_dataset_size+exact_test_dataset_size], test_dataset_save_dirpath)
 
     @classmethod
     def retrieve_split(cls, logicx: LogicX, center_node_indices: list[str], split_scale: int, split_limit: int, method: Literal['Random', 'Cascade', 'RandomFull', 'CascadeFull', 'Window']) -> LogicX:
