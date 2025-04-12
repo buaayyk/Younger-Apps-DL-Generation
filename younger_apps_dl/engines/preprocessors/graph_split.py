@@ -6,7 +6,7 @@
 # Author: Jason Young (杨郑鑫).
 # E-Mail: AI.Jason.Young@outlook.com
 # Last Modified by: Jason Young (杨郑鑫)
-# Last Modified time: 2025-04-12 19:28:12
+# Last Modified time: 2025-04-12 23:00:09
 # Copyright (c) 2025 Yangs.AI
 # 
 # This source code is licensed under the Apache License 2.0 found in the
@@ -183,13 +183,13 @@ class GraphSplit(BaseEngine[GraphSplitOptions]):
                             split = self.__class__.retrieve_split(logicxs[selected_logicx_index], [selected_node_index], split_scale, self.options.split_limit, self.options.method)
                             split_size = len(split.dag)
 
+                        current_tries += 1
                         if split_size not in self.options.split_scale:
                             continue
                         split_hash = LogicX.hash(split)
                         if split_hash in splits[split_size]:
                             continue
                         split.dag.graph['origin'] = logicx_hashes[selected_logicx_index]
-                        current_tries += 1
                         splits[split_size][split_hash] = split
                         current_split_count += 1
                         # Add To Split
