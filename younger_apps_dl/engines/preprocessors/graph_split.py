@@ -6,7 +6,7 @@
 # Author: Jason Young (杨郑鑫).
 # E-Mail: AI.Jason.Young@outlook.com
 # Last Modified by: Jason Young (杨郑鑫)
-# Last Modified time: 2025-04-12 19:23:21
+# Last Modified time: 2025-04-12 19:25:52
 # Copyright (c) 2025 Yangs.AI
 # 
 # This source code is licensed under the Apache License 2.0 found in the
@@ -327,7 +327,7 @@ class GraphSplit(BaseEngine[GraphSplitOptions]):
         logger.info(f'Saving Items ... ')
         with tqdm.tqdm(total=len(split_with_hashes), desc='Saving') as progress_bar:
             for split_hash, split in split_with_hashes:
-                item_filepath = items_dirpath.joinpath(f'{split_hash}'),
+                item_filepath = items_dirpath.joinpath(f'{split_hash}')
                 split.save(item_filepath)
                 progress_bar.update(1)
         logger.info(f'Saved.')
