@@ -6,7 +6,7 @@
 # Author: Jason Young (杨郑鑫).
 # E-Mail: AI.Jason.Young@outlook.com
 # Last Modified by: Jason Young (杨郑鑫)
-# Last Modified time: 2025-04-12 12:18:45
+# Last Modified time: 2025-04-12 13:05:09
 # Copyright (c) 2025 Yangs.AI
 # 
 # This source code is licensed under the Apache License 2.0 found in the
@@ -288,7 +288,6 @@ class GraphSplit(BaseEngine[GraphSplitOptions]):
             subgraph.nodes[node_index]['node_uuid'] = induced_subgraph.nodes[node_index]['node_uuid']
 
         node_ods: dict[str, int] = {node_index: subgraph.out_degree(node_index) for node_index in subgraph.nodes}
-        node_lvs: dict[str, int] = dict()
         bfs_queue = collections.deque()
         for node_index in subgraph.nodes:
             if node_ods[node_index] == 0:
@@ -297,7 +296,7 @@ class GraphSplit(BaseEngine[GraphSplitOptions]):
             prev_level_size = len(bfs_queue)
             for _ in range(prev_level_size):
                 node_index = bfs_queue.popleft()
-                subgraph.nodes[node_index]['level'] = min([node_lvs[successor] - 1 for successor in subgraph.successors(node_index)] + [0])
+                subgraph.nodes[node_index]['level'] = min([subgraph.nodes[successor].get('level', 0) - 1 for successor in subgraph.successors(node_index)] + [0])
                 for predecessor in subgraph.predecessors(node_index):
                     node_ods[predecessor] -= 1
                     if node_ods[predecessor] == 0:
