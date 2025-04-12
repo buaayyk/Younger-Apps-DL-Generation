@@ -6,7 +6,7 @@
 # Author: Jason Young (杨郑鑫).
 # E-Mail: AI.Jason.Young@outlook.com
 # Last Modified by: Jason Young (杨郑鑫)
-# Last Modified time: 2025-04-12 13:05:09
+# Last Modified time: 2025-04-12 19:23:21
 # Copyright (c) 2025 Yangs.AI
 # 
 # This source code is licensed under the Apache License 2.0 found in the
@@ -216,15 +216,17 @@ class GraphSplit(BaseEngine[GraphSplitOptions]):
 
         logger.info(f'Exact # of Splits - Training/Validation/Test = {exact_training_dataset_size} / {exact_validation_dataset_size} / {exact_test_dataset_size}')
 
-        logger.info(f'Saving \'Training\' Dataset into {training_dataset_save_dirpath.absolute()} ... ')
         training_dataset_save_dirpath = self.options.save_dirpath.joinpath('training')
+        logger.info(f'Saving \'Training\' Dataset into {training_dataset_save_dirpath.absolute()} ... ')
         self.__class__.save_dataset(uuid_occurence, split_with_hashes[:exact_training_dataset_size], training_dataset_save_dirpath)
 
         validation_dataset_save_dirpath = self.options.save_dirpath.joinpath('validation')
-        self.__class__.save_dataset(uuid_occurence, split_with_hashes[:exact_training_dataset_size], validation_dataset_save_dirpath)
+        logger.info(f'Saving \'Validation\' Dataset into {validation_dataset_save_dirpath.absolute()} ... ')
+        self.__class__.save_dataset(uuid_occurence, split_with_hashes[exact_training_dataset_size:exact_training_dataset_size+exact_validation_dataset_size], validation_dataset_save_dirpath)
 
         test_dataset_save_dirpath = self.options.save_dirpath.joinpath('test')
-        self.__class__.save_dataset(uuid_occurence, split_with_hashes[:exact_training_dataset_size], test_dataset_save_dirpath)
+        logger.info(f'Saving \'Test\' Dataset into {test_dataset_save_dirpath.absolute()} ... ')
+        self.__class__.save_dataset(uuid_occurence, split_with_hashes[exact_training_dataset_size+exact_validation_dataset_size:], test_dataset_save_dirpath)
 
     @classmethod
     def retrieve_split(cls, logicx: LogicX, center_node_indices: list[str], split_scale: int, split_limit: int, method: Literal['Random', 'Cascade', 'RandomFull', 'CascadeFull', 'Window']) -> LogicX:
