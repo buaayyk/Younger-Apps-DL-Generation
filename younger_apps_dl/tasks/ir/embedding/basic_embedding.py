@@ -6,7 +6,7 @@
 # Author: Jason Young (杨郑鑫).
 # E-Mail: AI.Jason.Young@outlook.com
 # Last Modified by: Jason Young (杨郑鑫)
-# Last Modified time: 2025-04-12 11:34:41
+# Last Modified time: 2025-04-12 13:34:27
 # Copyright (c) 2025 Yangs.AI
 # 
 # This source code is licensed under the Apache License 2.0 found in the
@@ -25,6 +25,8 @@ import pathlib
 from typing import Literal, Callable, Iterable
 from pydantic import BaseModel, Field
 from sklearn.metrics import f1_score, precision_score, recall_score, accuracy_score, top_k_accuracy_score
+
+from younger.commons.io import create_dir
 
 from younger_apps_dl.tasks import BaseTask, register_task
 from younger_apps_dl.engines import StandardTrainer, StandardTrainerOptions, StandardEvaluator, StandardEvaluatorOptions, StandardPredictor, StandardPredictorOptions, GraphSplit, GraphSplitOptions
@@ -416,9 +418,9 @@ class BasicEmbedding(BaseTask[BasicEmbeddingOptions]):
         device_descriptor = next(model.parameters()).device
 
         from torch_geometric.loader import NeighborLoader
-        from torch_geometric.nn import global_mean_pool
-
         from younger_logics_ir.modules import LogicX
+
+        create_dir(save_dirpath)
 
         graph_hashes = list()
         graph_embeddings = list()
