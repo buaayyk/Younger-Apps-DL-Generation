@@ -6,7 +6,7 @@
 # Author: Jason Young (杨郑鑫).
 # E-Mail: AI.Jason.Young@outlook.com
 # Last Modified by: Jason Young (杨郑鑫)
-# Last Modified time: 2025-04-13 19:03:08
+# Last Modified time: 2025-04-13 19:39:36
 # Copyright (c) 2024 Yangs.AI
 # 
 # This source code is licensed under the Apache License 2.0 found in the
@@ -293,7 +293,8 @@ class StandardTrainer(BaseEngine[StandardTrainerOptions]):
                     logger.info(f'-> Validating ...')
                     model.eval()
                     stic = time.time()
-                    metrics = valid_fn(model, valid_dataloader)
+                    with torch.no_grad():
+                        metrics = valid_fn(model, valid_dataloader)
                     stoc = time.time()
                     self.log(epoch, step, itr, metrics)
                     model.train()
@@ -388,7 +389,8 @@ class StandardTrainer(BaseEngine[StandardTrainerOptions]):
                     logger.info(f'-> Validating ...')
                     model.eval()
                     stic = time.time()
-                    metrics = valid_fn(model, valid_dataloader)
+                    with torch.no_grad():
+                        metrics = valid_fn(model, valid_dataloader)
                     stoc = time.time()
                     self.log(epoch, step, itr, metrics)
                     model.train()
