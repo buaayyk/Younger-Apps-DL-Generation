@@ -6,7 +6,7 @@
 # Author: Jason Young (杨郑鑫).
 # E-Mail: AI.Jason.Young@outlook.com
 # Last Modified by: Jason Young (杨郑鑫)
-# Last Modified time: 2025-04-13 16:01:03
+# Last Modified time: 2025-04-13 16:57:57
 # Copyright (c) 2025 Yangs.AI
 # 
 # This source code is licensed under the Apache License 2.0 found in the
@@ -319,10 +319,10 @@ class BasicEmbedding(BaseTask[BasicEmbeddingOptions]):
         return self._valid_fn_(model, dataloader)
 
     def _on_step_begin_fn_(self, step: int) -> None:
+        self.scheduler.step()
         return
 
     def _on_step_end_fn_(self, step: int) -> None:
-        self.scheduler.step()
         return
 
     def _on_epoch_begin_fn_(self, epoch: int) -> None:
