@@ -6,7 +6,7 @@
 # Author: Jason Young (杨郑鑫).
 # E-Mail: AI.Jason.Young@outlook.com
 # Last Modified by: Jason Young (杨郑鑫)
-# Last Modified time: 2025-04-13 16:57:57
+# Last Modified time: 2025-04-13 17:10:19
 # Copyright (c) 2025 Yangs.AI
 # 
 # This source code is licensed under the Apache License 2.0 found in the
@@ -145,6 +145,7 @@ class BasicEmbedding(BaseTask[BasicEmbeddingOptions]):
             self._on_epoch_begin_fn_,
             self._on_step_end_fn_,
             self._on_epoch_end_fn_,
+            self._on_update_fn_,
             'pyg',
             self.options.logging_filepath
         )
@@ -319,7 +320,6 @@ class BasicEmbedding(BaseTask[BasicEmbeddingOptions]):
         return self._valid_fn_(model, dataloader)
 
     def _on_step_begin_fn_(self, step: int) -> None:
-        self.scheduler.step()
         return
 
     def _on_step_end_fn_(self, step: int) -> None:
@@ -339,6 +339,10 @@ class BasicEmbedding(BaseTask[BasicEmbeddingOptions]):
         return
 
     def _on_epoch_end_fn_(self, epoch: int) -> None:
+        return
+
+    def _on_update_fn_(self, itr: int) -> None:
+        self.scheduler.step()
         return
 
     def _mask_(self, minibatch: GraphData, t2i: dict[str, int], mask_ratio: float, mask_method: Literal['Random', 'Purpose'], test: bool = False) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:

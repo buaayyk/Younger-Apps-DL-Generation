@@ -6,7 +6,7 @@
 # Author: Jason Young (杨郑鑫).
 # E-Mail: AI.Jason.Young@outlook.com
 # Last Modified by: Jason Young (杨郑鑫)
-# Last Modified time: 2025-04-13 16:19:54
+# Last Modified time: 2025-04-13 17:11:30
 # Copyright (c) 2024 Yangs.AI
 # 
 # This source code is licensed under the Apache License 2.0 found in the
@@ -91,6 +91,7 @@ class StandardTrainer(BaseEngine[StandardTrainerOptions]):
         on_step_end_fn: Callable[[int], None],
         on_epoch_begin_fn: Callable[[int], None],
         on_epoch_end_fn: Callable[[int], None],
+        on_update_fn: Callable[[int], None],
         dataloader_type: Literal['pth', 'pyg'] = 'pth',
         logging_filepath: pathlib.Path | None = None,
     ) -> None:
@@ -213,6 +214,7 @@ class StandardTrainer(BaseEngine[StandardTrainerOptions]):
         on_step_end_fn: Callable[[int], None],
         on_epoch_begin_fn: Callable[[int], None],
         on_epoch_end_fn: Callable[[int], None],
+        on_update_fn: Callable[[int], None],
         dataloader_type: Literal['pth', 'pyg'] = 'pth',
         logging_filepath: pathlib.Path | None = None,
     ) -> None:
@@ -276,6 +278,7 @@ class StandardTrainer(BaseEngine[StandardTrainerOptions]):
                 else:
                     retain_graph = True
                 metrics[0][1].backward(retain_graph=retain_graph)
+                on_update_fn(itr)
 
                 # Report Metrics
                 if itr % self.options.report_period == 0:
@@ -320,6 +323,7 @@ class StandardTrainer(BaseEngine[StandardTrainerOptions]):
         on_step_end_fn: Callable[[int], None],
         on_epoch_begin_fn: Callable[[int], None],
         on_epoch_end_fn: Callable[[int], None],
+        on_update_fn: Callable[[int], None],
         dataloader_type: Literal['pth', 'pyg'] = 'pth',
         logging_filepath: pathlib.Path | None = None,
     ) -> None:
@@ -367,6 +371,7 @@ class StandardTrainer(BaseEngine[StandardTrainerOptions]):
                     retain_graph = False
                     optimizer.step()
                     optimizer.zero_grad()
+                    on_update_fn(itr)
                 else:
                     retain_graph = True
                 metrics[0][1].backward(retain_graph=retain_graph)
