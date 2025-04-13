@@ -6,7 +6,7 @@
 # Author: Jason Young (杨郑鑫).
 # E-Mail: AI.Jason.Young@outlook.com
 # Last Modified by: Jason Young (杨郑鑫)
-# Last Modified time: 2025-04-09 07:29:24
+# Last Modified time: 2025-04-13 15:10:15
 # Copyright (c) 2024 Yangs.AI
 # 
 # This source code is licensed under the Apache License 2.0 found in the
@@ -42,7 +42,7 @@ class StandardTrainerOptions(BaseModel):
     checkpoint_keepdisk: int = Field(5, ge=1, description='Number of checkpoints to keep on disk.')
 
     ## Resume Options
-    resume_filepath: pathlib.Path  = Field('', description='Path to load checkpoint. If "", train from scratch.')
+    resume_filepath: pathlib.Path | None  = Field(None, description='Path to load checkpoint. If None, train from scratch.')
     reset_iteration: bool = Field(True, description='Whether to reset the iteration status (epoch, step) when loading a checkpoint.')
     reset_optimizer: bool = Field(True, description='Whether to reset the optimizer when loading a checkpoint.')
     reset_scheduler: bool = Field(True, description='Whether to reset the scheduler when loading a checkpoint.')
@@ -120,7 +120,7 @@ class StandardTrainer(BaseEngine[StandardTrainerOptions]):
         """
 
         equip_logger(logging_filepath)
-        if len(self.options.resume_filepath) == 0:
+        if len(self.options.resume_filepath) is None:
             logger.info(f'-> Train from scratch.')
         else:
             checkpoint = load_checkpoint(self.options.resume_filepath)
