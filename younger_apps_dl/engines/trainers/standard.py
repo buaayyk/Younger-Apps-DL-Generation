@@ -6,7 +6,7 @@
 # Author: Jason Young (杨郑鑫).
 # E-Mail: AI.Jason.Young@outlook.com
 # Last Modified by: Jason Young (杨郑鑫)
-# Last Modified time: 2025-04-13 19:39:36
+# Last Modified time: 2025-04-13 19:44:10
 # Copyright (c) 2024 Yangs.AI
 # 
 # This source code is licensed under the Apache License 2.0 found in the
@@ -71,11 +71,12 @@ class StandardTrainerOptions(BaseModel):
 class StandardTrainer(BaseEngine[StandardTrainerOptions]):
     OPTIONS = StandardTrainerOptions
 
-    def log(self, epoch: int, step: int, itr: int, metrics: list[tuple[str, torch.Tensor, Callable[[float], str]]]) -> None:
+    def log(self, epoch: int, step: int, itr: int, metrics: list[tuple[str, torch.Tensor | float, Callable[[float], str]]]) -> None:
         with torch.no_grad():
             logs = list()
             for metric_name, metric_value, metric_format in metrics:
-                metric_value = metric_value.detach()
+                if isinstance(metric_value, torch.Tensor):
+                    metric_value = metric_value.detach()
                 if self.options.distributed:
                     distributed.all_reduce(metric_value, op = distributed.ReduceOp.SUM)
                 logs.append(f'[{metric_name}]={metric_format(float(metric_value / self.options.node_number))}')
