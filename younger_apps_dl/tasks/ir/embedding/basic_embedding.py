@@ -6,7 +6,7 @@
 # Author: Jason Young (杨郑鑫).
 # E-Mail: AI.Jason.Young@outlook.com
 # Last Modified by: Jason Young (杨郑鑫)
-# Last Modified time: 2025-04-12 13:34:27
+# Last Modified time: 2025-04-13 10:35:03
 # Copyright (c) 2025 Yangs.AI
 # 
 # This source code is licensed under the Apache License 2.0 found in the
@@ -95,19 +95,19 @@ class BasicEmbeddingOptions(BaseModel):
 class BasicEmbedding(BaseTask[BasicEmbeddingOptions]):
     OPTIONS = BasicEmbeddingOptions
     def train(self):
-        self.train_dataset = self._build_dataset_(
-            self.options.train_dataset.meta_filepath,
-            self.options.train_dataset.raw_dirpath,
-            self.options.train_dataset.processed_dirpath,
-            'train',
-            self.options.train_dataset.worker_number
-        )
         self.valid_dataset = self._build_dataset_(
             self.options.valid_dataset.meta_filepath,
             self.options.valid_dataset.raw_dirpath,
             self.options.valid_dataset.processed_dirpath,
             'valid',
             self.options.valid_dataset.worker_number
+        )
+        self.train_dataset = self._build_dataset_(
+            self.options.train_dataset.meta_filepath,
+            self.options.train_dataset.raw_dirpath,
+            self.options.train_dataset.processed_dirpath,
+            'train',
+            self.options.train_dataset.worker_number
         )
         self.model = self._build_model_(
             len(self.train_dataset.dicts['i2t']),
