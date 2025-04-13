@@ -6,7 +6,7 @@
 # Author: Jason Young (杨郑鑫).
 # E-Mail: AI.Jason.Young@outlook.com
 # Last Modified by: Jason Young (杨郑鑫)
-# Last Modified time: 2025-04-13 12:59:37
+# Last Modified time: 2025-04-13 14:06:34
 # Copyright (c) 2025 Yangs.AI
 # 
 # This source code is licensed under the Apache License 2.0 found in the
@@ -19,17 +19,6 @@ import numpy
 import random
 
 from typing import Any, Literal, Iterable
-
-
-def split_sequence(sequence: list, split_count: int) -> list[list]:
-    avg, rmd = divmod(len(sequence), split_count)
-    splits = list()
-    start = 0
-    for i in range(split_count):
-        end = start + avg + (1 if i < rmd else 0)
-        splits.append(sequence[start:end])
-        start = end
-    return splits
 
 
 def shuffle_sequence(sequence: Iterable) -> Iterable:
