@@ -6,7 +6,7 @@
 # Author: Jason Young (杨郑鑫).
 # E-Mail: AI.Jason.Young@outlook.com
 # Last Modified by: Jason Young (杨郑鑫)
-# Last Modified time: 2025-04-13 13:08:35
+# Last Modified time: 2025-04-13 13:14:02
 # Copyright (c) 2025 Yangs.AI
 # 
 # This source code is licensed under the Apache License 2.0 found in the
@@ -146,9 +146,10 @@ class GraphDataset(Dataset):
         return hashs
 
 
-    def _process_chunk_(self, indices: list[int]):
+    def _process_chunk_(self, parameter: tuple[list[int], int]):
+        indices, worker_id = parameter
         processed_indices = list()
-        with tqdm.tqdm(total=len(indices), desc=f"Processing: Worker PID - {os.getpid()}") as progress_bar:
+        with tqdm.tqdm(total=len(indices), desc=f"Processing: Worker PID - {os.getpid()}", position=worker_id) as progress_bar:
             for index in indices:
                 self.process_sample(index)
                 processed_indices.append(index)
@@ -159,8 +160,9 @@ class GraphDataset(Dataset):
     def process(self):
         chunk_count = self.worker_number * 4
         indices_list: list[list[int]] = split_sequence(list(range(len(self))), chunk_count)
+        worker_index: list[int] = list(range(len(indices_list)))
         with multiprocessing.Pool(self.worker_number) as pool:
-            for indices in pool.imap_unordered(self._process_chunk_, indices_list):
+            for indices in pool.imap_unordered(self._process_chunk_, zip(indices_list, worker_index)):
                 pass
 
     # def process(self):
