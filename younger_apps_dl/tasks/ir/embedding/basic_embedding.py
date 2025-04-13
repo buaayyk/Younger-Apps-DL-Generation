@@ -6,7 +6,7 @@
 # Author: Jason Young (杨郑鑫).
 # E-Mail: AI.Jason.Young@outlook.com
 # Last Modified by: Jason Young (杨郑鑫)
-# Last Modified time: 2025-04-13 15:23:56
+# Last Modified time: 2025-04-13 15:56:15
 # Copyright (c) 2025 Yangs.AI
 # 
 # This source code is licensed under the Apache License 2.0 found in the
@@ -376,7 +376,7 @@ class BasicEmbedding(BaseTask[BasicEmbeddingOptions]):
             x[mask_mask_indices] = t2i['__MASK__']
 
             mask_optr_indices = torch.bernoulli(torch.full(x.shape, 0.5, dtype=torch.float, device=device_descriptor)).bool() & mask_indices & ~mask_mask_indices
-            x[self.mask_optr_indices] = torch.randint(2, len(t2i), x.shape, dtype=torch.long, device=device_descriptor)[mask_optr_indices]
+            x[mask_optr_indices] = torch.randint(2, len(t2i), x.shape, dtype=torch.long, device=device_descriptor)[mask_optr_indices]
 
         return x, edge_index, golden
 
