@@ -6,7 +6,7 @@
 # Author: Jason Young (杨郑鑫).
 # E-Mail: AI.Jason.Young@outlook.com
 # Last Modified by: Jason Young (杨郑鑫)
-# Last Modified time: 2025-04-08 23:04:34
+# Last Modified time: 2025-04-13 10:28:58
 # Copyright (c) 2025 Yangs.AI
 # 
 # This source code is licensed under the Apache License 2.0 found in the
@@ -17,6 +17,7 @@
 import os
 import tqdm
 import torch
+import pathlib
 import multiprocessing
 
 from typing import Any, Callable, Literal
@@ -151,7 +152,7 @@ class GraphDataset(Dataset):
     def process_sample(self, index: int) -> int:
         logicx_filepath = os.path.join(self.raw_dir, self.raw_file_names[index])
         logicx = LogicX()
-        logicx.load(logicx_filepath)
+        logicx.load(pathlib.Path(logicx_filepath))
         graph_data = self.__class__.process_graph_data(logicx, self.dicts)
         torch.save(graph_data, os.path.join(self.processed_dir, self.processed_file_names[index]))
         return index
