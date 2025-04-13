@@ -6,7 +6,7 @@
 # Author: Jason Young (杨郑鑫).
 # E-Mail: AI.Jason.Young@outlook.com
 # Last Modified by: Jason Young (杨郑鑫)
-# Last Modified time: 2025-04-13 15:15:21
+# Last Modified time: 2025-04-13 15:21:19
 # Copyright (c) 2024 Yangs.AI
 # 
 # This source code is licensed under the Apache License 2.0 found in the
@@ -119,6 +119,9 @@ class StandardTrainer(BaseEngine[StandardTrainerOptions]):
         :type dataloader: Literal[&#39;pth&#39;, &#39;pyg&#39;], optional
         """
 
+        start_from_epoch: int = 0
+        start_from_step: int = 0
+        start_from_itr: int = 0
         equip_logger(logging_filepath)
         if self.options.resume_filepath is None:
             logger.info(f'-> Train from scratch.')
