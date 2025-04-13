@@ -6,7 +6,7 @@
 # Author: Jason Young (杨郑鑫).
 # E-Mail: AI.Jason.Young@outlook.com
 # Last Modified by: Jason Young (杨郑鑫)
-# Last Modified time: 2025-04-13 14:06:46
+# Last Modified time: 2025-04-13 15:53:51
 # Copyright (c) 2025 Yangs.AI
 # 
 # This source code is licensed under the Apache License 2.0 found in the
@@ -23,6 +23,7 @@ import multiprocessing
 from typing import Any, Callable, Literal
 
 from torch_geometric.data import Data, Dataset
+from torch_geometric.data.data import DataEdgeAttr, DataTensorAttr, GlobalStorage
 from torch_geometric.utils import is_sparse
 
 from younger.commons.io import load_json
@@ -37,7 +38,7 @@ from younger_apps_dl.datasets import register_dataset
 class GraphData(Data):
     def __cat_dim__(self, key: str, value: Any, *args, **kwargs) -> Any:
         if key == 'level': # Directed Acyclic Graph Generation Level
-            return -1
+            return 0
 
         if is_sparse(value) and 'adj' in key:
             return (0, 1)
@@ -56,6 +57,9 @@ class GraphData(Data):
             return self.num_nodes
         else:
             return 0
+
+
+torch.serialization.add_safe_globals([GraphData, DataEdgeAttr, DataTensorAttr, GlobalStorage])
 
 
 @register_dataset('graph')
