@@ -6,7 +6,7 @@
 # Author: Jason Young (杨郑鑫).
 # E-Mail: AI.Jason.Young@outlook.com
 # Last Modified by: Jason Young (杨郑鑫)
-# Last Modified time: 2025-04-13 17:31:41
+# Last Modified time: 2025-04-13 17:41:33
 # Copyright (c) 2024 Yangs.AI
 # 
 # This source code is licensed under the Apache License 2.0 found in the
@@ -185,6 +185,7 @@ class StandardTrainer(BaseEngine[StandardTrainerOptions]):
                 on_step_end_fn,
                 on_epoch_begin_fn,
                 on_epoch_end_fn,
+                on_update_fn,
                 dataloader_type,
             ), nprocs=node_number, join=True)
         else:
@@ -197,6 +198,7 @@ class StandardTrainer(BaseEngine[StandardTrainerOptions]):
                 on_step_end_fn,
                 on_epoch_begin_fn,
                 on_epoch_end_fn,
+                on_update_fn,
                 dataloader_type,
             )
         toc = time.time()
