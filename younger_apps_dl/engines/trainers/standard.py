@@ -6,7 +6,7 @@
 # Author: Jason Young (杨郑鑫).
 # E-Mail: AI.Jason.Young@outlook.com
 # Last Modified by: Jason Young (杨郑鑫)
-# Last Modified time: 2025-04-13 17:11:30
+# Last Modified time: 2025-04-13 17:25:36
 # Copyright (c) 2024 Yangs.AI
 # 
 # This source code is licensed under the Apache License 2.0 found in the
@@ -275,6 +275,7 @@ class StandardTrainer(BaseEngine[StandardTrainerOptions]):
                     retain_graph = False
                     optimizer.step()
                     optimizer.zero_grad()
+                    on_step_end_fn(step)
                 else:
                     retain_graph = True
                 metrics[0][1].backward(retain_graph=retain_graph)
@@ -303,7 +304,6 @@ class StandardTrainer(BaseEngine[StandardTrainerOptions]):
                     stoc = time.time()
                     logger.info(f'   Time Cost: {stoc-stic:.2f}s')
                 distributed.barrier()
-                on_step_end_fn(step)
 
             on_epoch_end_fn(epoch)
             toc = time.time()

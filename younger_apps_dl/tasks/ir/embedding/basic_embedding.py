@@ -6,7 +6,7 @@
 # Author: Jason Young (杨郑鑫).
 # E-Mail: AI.Jason.Young@outlook.com
 # Last Modified by: Jason Young (杨郑鑫)
-# Last Modified time: 2025-04-13 17:10:19
+# Last Modified time: 2025-04-13 17:27:43
 # Copyright (c) 2025 Yangs.AI
 # 
 # This source code is licensed under the Apache License 2.0 found in the
@@ -347,8 +347,8 @@ class BasicEmbedding(BaseTask[BasicEmbeddingOptions]):
 
     def _mask_(self, minibatch: GraphData, t2i: dict[str, int], mask_ratio: float, mask_method: Literal['Random', 'Purpose'], test: bool = False) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         device_descriptor = minibatch.x.device
-        x = minibatch.x
-        edge_index = minibatch.edge_index
+        x = minibatch.x.detach().clone()
+        edge_index = minibatch.edge_index.detach().clone()
 
         golden = x.clone()
 
@@ -356,8 +356,8 @@ class BasicEmbedding(BaseTask[BasicEmbeddingOptions]):
             mask_probability = torch.full(x.shape, mask_ratio, dtype=torch.float, device=device_descriptor)
 
         if mask_method == 'Purpose':
-            source_index = edge_index[0].to(device_descriptor)
-            target_index = edge_index[1].to(device_descriptor)
+            source_index = edge_index[0]
+            target_index = edge_index[1]
 
             last_level_nodes = target_index[~torch.isin(target_index, source_index)]
 
