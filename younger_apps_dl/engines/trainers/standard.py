@@ -6,7 +6,7 @@
 # Author: Jason Young (杨郑鑫).
 # E-Mail: AI.Jason.Young@outlook.com
 # Last Modified by: Jason Young (杨郑鑫)
-# Last Modified time: 2025-04-13 15:10:15
+# Last Modified time: 2025-04-13 15:15:21
 # Copyright (c) 2024 Yangs.AI
 # 
 # This source code is licensed under the Apache License 2.0 found in the
@@ -120,7 +120,7 @@ class StandardTrainer(BaseEngine[StandardTrainerOptions]):
         """
 
         equip_logger(logging_filepath)
-        if len(self.options.resume_filepath) is None:
+        if self.options.resume_filepath is None:
             logger.info(f'-> Train from scratch.')
         else:
             checkpoint = load_checkpoint(self.options.resume_filepath)
