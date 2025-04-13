@@ -6,7 +6,7 @@
 # Author: Jason Young (杨郑鑫).
 # E-Mail: AI.Jason.Young@outlook.com
 # Last Modified by: Jason Young (杨郑鑫)
-# Last Modified time: 2025-04-13 19:44:10
+# Last Modified time: 2025-04-13 23:44:50
 # Copyright (c) 2024 Yangs.AI
 # 
 # This source code is licensed under the Apache License 2.0 found in the
@@ -65,6 +65,8 @@ class StandardTrainerOptions(BaseModel):
     master_port: str  = Field('16161', description='Master port for distributed training.')
     master_rank: int  = Field(0, ge=0, description='Master rank for distributed training. It should be < world_size and >= 0.')
     node_number: int  = Field(2, gt=1, description='Number of devices participating in distributed training. It should be > 1.')
+
+    worker_number: int = Field(10, description='Number of workers for dataloader.')
 
 
 @register_engine('trainer', 'standard')
@@ -247,7 +249,7 @@ class StandardTrainer(BaseEngine[StandardTrainerOptions]):
         if dataloader_type == 'pyg':
             from torch_geometric.loader import DataLoader
 
-        train_dataloader = DataLoader(train_dataset, batch_size=self.options.train_batch_size, sampler=train_sampler)
+        train_dataloader = DataLoader(train_dataset, batch_size=self.options.train_batch_size, sampler=train_sampler, pin_memory=True, persistent_workers=True, num_workers=self.options.worker_number)
         valid_dataloader = DataLoader(valid_dataset, batch_size=self.options.valid_batch_size, shuffle=False)
 
         model.train()
@@ -346,7 +348,7 @@ class StandardTrainer(BaseEngine[StandardTrainerOptions]):
         if dataloader_type == 'pyg':
             from torch_geometric.loader import DataLoader
 
-        train_dataloader = DataLoader(train_dataset, batch_size=self.options.train_batch_size, sampler=train_sampler)
+        train_dataloader = DataLoader(train_dataset, batch_size=self.options.train_batch_size, sampler=train_sampler, pin_memory=True, persistent_workers=True, num_workers=self.options.worker_number)
         valid_dataloader = DataLoader(valid_dataset, batch_size=self.options.valid_batch_size, shuffle=False)
 
         model.train()
