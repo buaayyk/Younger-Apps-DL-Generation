@@ -6,7 +6,7 @@
 # Author: Jason Young (杨郑鑫).
 # E-Mail: AI.Jason.Young@outlook.com
 # Last Modified by: Jason Young (杨郑鑫)
-# Last Modified time: 2025-04-13 10:31:27
+# Last Modified time: 2025-04-13 13:08:35
 # Copyright (c) 2025 Yangs.AI
 # 
 # This source code is licensed under the Apache License 2.0 found in the
@@ -26,9 +26,11 @@ from torch_geometric.data import Data, Dataset
 from torch_geometric.utils import is_sparse
 
 from younger.commons.io import load_json
+from younger.commons.logging import logger
 
 from younger_logics_ir.modules import LogicX
 
+from younger_apps_dl.commons.utils import split_sequence
 from younger_apps_dl.datasets import register_dataset
 
 
@@ -143,11 +145,29 @@ class GraphDataset(Dataset):
         hashs = sorted(meta['item_names'])
         return hashs
 
+
+    def _process_chunk_(self, indices: list[int]):
+        processed_indices = list()
+        with tqdm.tqdm(total=len(indices), desc=f"Processing: Worker PID - {os.getpid()}") as progress_bar:
+            for index in indices:
+                self.process_sample(index)
+                processed_indices.append(index)
+                progress_bar.set_postfix({f'Current Indices': f'{index}'})
+                progress_bar.update(1)
+        return processed_indices
+
     def process(self):
+        chunk_count = self.worker_number * 4
+        indices_list: list[list[int]] = split_sequence(list(range(len(self))), chunk_count)
         with multiprocessing.Pool(self.worker_number) as pool:
-            with tqdm.tqdm(total=len(self)) as progress_bar:
-                for index in pool.imap_unordered(self.process_sample, range(len(self))):
-                    progress_bar.update(1)
+            for indices in pool.imap_unordered(self._process_chunk_, indices_list):
+                pass
+
+    # def process(self):
+    #     with multiprocessing.Pool(self.worker_number) as pool:
+    #         with tqdm.tqdm(total=len(self)) as progress_bar:
+    #             for index in pool.imap_unordered(self.process_sample, range(len(self))):
+    #                 progress_bar.update(1)
 
     def process_sample(self, index: int) -> int:
         logicx_filepath = os.path.join(self.raw_dir, self.raw_file_names[index])
