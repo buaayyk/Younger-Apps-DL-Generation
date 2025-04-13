@@ -6,7 +6,7 @@
 # Author: Jason Young (杨郑鑫).
 # E-Mail: AI.Jason.Young@outlook.com
 # Last Modified by: Jason Young (杨郑鑫)
-# Last Modified time: 2025-04-13 16:01:08
+# Last Modified time: 2025-04-13 16:19:54
 # Copyright (c) 2024 Yangs.AI
 # 
 # This source code is licensed under the Apache License 2.0 found in the
@@ -376,7 +376,7 @@ class StandardTrainer(BaseEngine[StandardTrainerOptions]):
                     self.log(epoch, step, itr, metrics)
 
                 # Validate and Save Model
-                if itr % self.options.valid_period == 0:
+                if itr % self.options.saving_period == 0:
                     logger.info(f'-> Validating ...')
                     model.eval()
                     stic = time.time()
