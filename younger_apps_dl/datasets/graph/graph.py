@@ -6,7 +6,7 @@
 # Author: Jason Young (杨郑鑫).
 # E-Mail: AI.Jason.Young@outlook.com
 # Last Modified by: Jason Young (杨郑鑫)
-# Last Modified time: 2025-04-13 13:14:02
+# Last Modified time: 2025-04-13 13:58:43
 # Copyright (c) 2025 Yangs.AI
 # 
 # This source code is licensed under the Apache License 2.0 found in the
@@ -160,7 +160,7 @@ class GraphDataset(Dataset):
     def process(self):
         chunk_count = self.worker_number * 4
         indices_list: list[list[int]] = split_sequence(list(range(len(self))), chunk_count)
-        worker_index: list[int] = list(range(len(indices_list)))
+        worker_index: list[int] = list(range(self.worker_number)) * 4
         with multiprocessing.Pool(self.worker_number) as pool:
             for indices in pool.imap_unordered(self._process_chunk_, zip(indices_list, worker_index)):
                 pass
