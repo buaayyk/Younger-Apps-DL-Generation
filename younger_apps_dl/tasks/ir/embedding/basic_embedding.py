@@ -6,7 +6,7 @@
 # Author: Jason Young (杨郑鑫).
 # E-Mail: AI.Jason.Young@outlook.com
 # Last Modified by: Jason Young (杨郑鑫)
-# Last Modified time: 2025-04-13 17:27:43
+# Last Modified time: 2025-04-13 19:01:58
 # Copyright (c) 2025 Yangs.AI
 # 
 # This source code is licensed under the Apache License 2.0 found in the
@@ -266,7 +266,7 @@ class BasicEmbedding(BaseTask[BasicEmbeddingOptions]):
                 model.train()
                 x = x.detach()
 
-        output = model(x, edge_index)
+        output = model(x.detach(), edge_index)
         loss = torch.nn.functional.cross_entropy(output, golden.squeeze(1), ignore_index=-1)
         return [('loss', loss, lambda x: f'{x:.4f}')]
 
@@ -347,8 +347,8 @@ class BasicEmbedding(BaseTask[BasicEmbeddingOptions]):
 
     def _mask_(self, minibatch: GraphData, t2i: dict[str, int], mask_ratio: float, mask_method: Literal['Random', 'Purpose'], test: bool = False) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         device_descriptor = minibatch.x.device
-        x = minibatch.x.detach().clone()
-        edge_index = minibatch.edge_index.detach().clone()
+        x = minibatch.x.clone()
+        edge_index = minibatch.edge_index.clone()
 
         golden = x.clone()
 
@@ -375,12 +375,16 @@ class BasicEmbedding(BaseTask[BasicEmbeddingOptions]):
         if test:
             mask_mask_indices = torch.bernoulli(torch.full(x.shape, 1.0, dtype=torch.float, device=device_descriptor)).bool() & mask_indices
             x[mask_mask_indices] = t2i['__MASK__']
+            # x = torch.where(mask_indices, torch.full_like(x, t2i['__MASK__']), x)
         else:
             mask_mask_indices = torch.bernoulli(torch.full(x.shape, 0.8, dtype=torch.float, device=device_descriptor)).bool() & mask_indices
             x[mask_mask_indices] = t2i['__MASK__']
+            # x = torch.where(mask_indices, torch.full_like(x, t2i['__MASK__']), x)
 
             mask_optr_indices = torch.bernoulli(torch.full(x.shape, 0.5, dtype=torch.float, device=device_descriptor)).bool() & mask_indices & ~mask_mask_indices
             x[mask_optr_indices] = torch.randint(2, len(t2i), x.shape, dtype=torch.long, device=device_descriptor)[mask_optr_indices]
+            # rand_values = torch.randint(2, len(t2i), x.shape, dtype=torch.long, device=device_descriptor)
+            # x = torch.where(mask_optr_indices, rand_values, x)
 
         return x, edge_index, golden
 
