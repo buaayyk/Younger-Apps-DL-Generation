@@ -6,7 +6,7 @@
 # Author: Jason Young (杨郑鑫).
 # E-Mail: AI.Jason.Young@outlook.com
 # Last Modified by: Jason Young (杨郑鑫)
-# Last Modified time: 2025-04-13 15:56:15
+# Last Modified time: 2025-04-13 16:01:03
 # Copyright (c) 2025 Yangs.AI
 # 
 # This source code is licensed under the Apache License 2.0 found in the
@@ -267,7 +267,7 @@ class BasicEmbedding(BaseTask[BasicEmbeddingOptions]):
 
         output = model(x, edge_index)
         loss = torch.nn.functional.cross_entropy(output, golden.squeeze(1), ignore_index=-1)
-        return ['loss', loss, lambda x: f'{x:.4f}']
+        return [('loss', loss, lambda x: f'{x:.4f}')]
 
     def _valid_fn_(self, model: torch.nn.Module, dataloader: torch.utils.data.DataLoader) -> list[tuple[str, torch.Tensor, Callable[[float], str]]]:
         device_descriptor = next(model.parameters()).device
