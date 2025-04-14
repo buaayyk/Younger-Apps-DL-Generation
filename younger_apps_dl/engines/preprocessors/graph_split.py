@@ -6,7 +6,7 @@
 # Author: Jason Young (杨郑鑫).
 # E-Mail: AI.Jason.Young@outlook.com
 # Last Modified by: Jason Young (杨郑鑫)
-# Last Modified time: 2025-04-12 23:51:04
+# Last Modified time: 2025-04-14 08:31:38
 # Copyright (c) 2025 Yangs.AI
 # 
 # This source code is licensed under the Apache License 2.0 found in the
@@ -63,6 +63,7 @@ class GraphSplitOptions(BaseModel):
                                                                'Graphs larger than this value will be excluded. '
                                                                'Set to `None` to disable this filter.')
 
+    uuid_threshold: int | None = Field(None, ge=0, description='Occurence threshold to ignore uuid, lower than threshold will be discarded.')
     seed: int = Field(16861, ge=0, description='Random seed for deterministic behavior during subgraph split sampling.')
 
 
@@ -135,6 +136,9 @@ class GraphSplit(BaseEngine[GraphSplitOptions]):
         for uuid, uuid_positions in all_uuid_positions.items():
             uuid_occurence[uuid] = sum([len(node_indices) for logicx_index, node_indices in uuid_positions.items()])
         logger.info(f'Total {len(uuid_occurence)} Different Operators')
+
+        ignored = set(uuid for uuid, occurence in uuid_occurence.items() if self.options.uuid_threshold is not None and self.options.uuid_threshold <= occurence )
+        logger.info(f'After Ignore: {len(ignored)} Different Operators')
 
         logger.info(f'User Specified # of Splits - Training/Validation/Test = {self.options.training_dataset_size} / {self.options.validation_dataset_size} / {self.options.test_dataset_size}')
 
@@ -218,15 +222,15 @@ class GraphSplit(BaseEngine[GraphSplitOptions]):
 
         training_dataset_save_dirpath = self.options.save_dirpath.joinpath('training')
         logger.info(f'Saving \'Training\' Dataset into {training_dataset_save_dirpath.absolute()} ... ')
-        self.__class__.save_dataset(uuid_occurence, split_with_hashes[:exact_training_dataset_size], training_dataset_save_dirpath)
+        self.__class__.save_dataset(uuid_occurence, split_with_hashes[:exact_training_dataset_size], training_dataset_save_dirpath, ignored)
 
         validation_dataset_save_dirpath = self.options.save_dirpath.joinpath('validation')
         logger.info(f'Saving \'Validation\' Dataset into {validation_dataset_save_dirpath.absolute()} ... ')
-        self.__class__.save_dataset(uuid_occurence, split_with_hashes[exact_training_dataset_size:exact_training_dataset_size+exact_validation_dataset_size], validation_dataset_save_dirpath)
+        self.__class__.save_dataset(uuid_occurence, split_with_hashes[exact_training_dataset_size:exact_training_dataset_size+exact_validation_dataset_size], validation_dataset_save_dirpath, ignored)
 
         test_dataset_save_dirpath = self.options.save_dirpath.joinpath('test')
         logger.info(f'Saving \'Test\' Dataset into {test_dataset_save_dirpath.absolute()} ... ')
-        self.__class__.save_dataset(uuid_occurence, split_with_hashes[exact_training_dataset_size+exact_validation_dataset_size:exact_training_dataset_size+exact_validation_dataset_size+exact_test_dataset_size], test_dataset_save_dirpath)
+        self.__class__.save_dataset(uuid_occurence, split_with_hashes[exact_training_dataset_size+exact_validation_dataset_size:exact_training_dataset_size+exact_validation_dataset_size+exact_test_dataset_size], test_dataset_save_dirpath, ignored)
 
     @classmethod
     def retrieve_split(cls, logicx: LogicX, center_node_indices: list[str], split_scale: int, split_limit: int, method: Literal['Random', 'Cascade', 'RandomFull', 'CascadeFull', 'Window']) -> LogicX:
@@ -308,8 +312,8 @@ class GraphSplit(BaseEngine[GraphSplitOptions]):
         return split
 
     @classmethod
-    def save_dataset(cls, uuid_occurence: dict[str, int], split_with_hashes: list[tuple[str, LogicX]], save_dirpath: pathlib.Path):
-        node_types = [node_type for node_type, node_occr in uuid_occurence.items()]
+    def save_dataset(cls, uuid_occurence: dict[str, int], split_with_hashes: list[tuple[str, LogicX]], save_dirpath: pathlib.Path, ignored: set[str]):
+        node_types = [node_type for node_type, node_occr in uuid_occurence.items() if node_type not in ignored]
         item_names = [item_name for item_name, item_lgcx in split_with_hashes]
         meta = dict(
             node_types = node_types,
