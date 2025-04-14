@@ -6,7 +6,7 @@
 # Author: Jason Young (杨郑鑫).
 # E-Mail: AI.Jason.Young@outlook.com
 # Last Modified by: Jason Young (杨郑鑫)
-# Last Modified time: 2025-04-13 23:44:50
+# Last Modified time: 2025-04-15 07:02:35
 # Copyright (c) 2024 Yangs.AI
 # 
 # This source code is licensed under the Apache License 2.0 found in the
@@ -191,6 +191,7 @@ class StandardTrainer(BaseEngine[StandardTrainerOptions]):
                 on_epoch_end_fn,
                 on_update_fn,
                 dataloader_type,
+                logging_filepath,
             ), nprocs=node_number, join=True)
         else:
             self.solo_train(
@@ -204,6 +205,7 @@ class StandardTrainer(BaseEngine[StandardTrainerOptions]):
                 on_epoch_end_fn,
                 on_update_fn,
                 dataloader_type,
+                logging_filepath,
             )
         toc = time.time()
         logger.info(f'-> All Done! Overall Time Cost = {toc-tic:.2f}s')
@@ -278,13 +280,12 @@ class StandardTrainer(BaseEngine[StandardTrainerOptions]):
 
                 # Update Model Parameters
                 if itr % self.options.update_period == 0:
-                    retain_graph = False
+                    metrics[0][1].backward(retain_graph=False)
                     optimizer.step()
                     optimizer.zero_grad()
                     on_update_fn(itr)
                 else:
-                    retain_graph = True
-                metrics[0][1].backward(retain_graph=retain_graph)
+                    metrics[0][1].backward(retain_graph=True)
 
                 # Report Metrics
                 if itr % self.options.report_period == 0:
@@ -373,15 +374,15 @@ class StandardTrainer(BaseEngine[StandardTrainerOptions]):
 
                 metrics = train_fn(model, minibatch)
 
+
                 # Update Model Parameters
                 if itr % self.options.update_period == 0:
-                    retain_graph = False
+                    metrics[0][1].backward(retain_graph=False)
                     optimizer.step()
                     optimizer.zero_grad()
                     on_update_fn(itr)
                 else:
-                    retain_graph = True
-                metrics[0][1].backward(retain_graph=retain_graph)
+                    metrics[0][1].backward(retain_graph=True)
 
                 # Report Metrics
                 if itr % self.options.report_period == 0:

@@ -6,7 +6,7 @@
 # Author: Jason Young (杨郑鑫).
 # E-Mail: AI.Jason.Young@outlook.com
 # Last Modified by: Jason Young (杨郑鑫)
-# Last Modified time: 2025-04-13 19:01:58
+# Last Modified time: 2025-04-15 06:53:27
 # Copyright (c) 2025 Yangs.AI
 # 
 # This source code is licensed under the Apache License 2.0 found in the
@@ -142,8 +142,8 @@ class BasicEmbedding(BaseTask[BasicEmbeddingOptions]):
             self._train_fn_,
             self._valid_fn_,
             self._on_step_begin_fn_,
-            self._on_epoch_begin_fn_,
             self._on_step_end_fn_,
+            self._on_epoch_begin_fn_,
             self._on_epoch_end_fn_,
             self._on_update_fn_,
             'pyg',
@@ -275,6 +275,7 @@ class BasicEmbedding(BaseTask[BasicEmbeddingOptions]):
 
         outputs = list()
         goldens = list()
+        loss = 0
         # Return Output & Golden
         with tqdm.tqdm(total=len(dataloader)) as progress_bar:
             for index, minibatch in enumerate(dataloader, start=1):
@@ -286,6 +287,7 @@ class BasicEmbedding(BaseTask[BasicEmbeddingOptions]):
                 else:
                     x, edge_index, golden = self._mask_(minibatch, self.dicts['t2i'], self.options.mask_ratio, self.options.mask_method)
                     output = torch.softmax(model(x, edge_index), dim=-1)
+                loss += torch.nn.functional.cross_entropy(output, golden.squeeze(1), ignore_index=-1).cpu().numpy()
 
                 outputs.append(output)
                 goldens.append(golden)
@@ -306,6 +308,7 @@ class BasicEmbedding(BaseTask[BasicEmbeddingOptions]):
         print("gold[:5]:", gold[:5])
 
         metrics = [
+            ('loss', loss, lambda x: f'{x:.4f}'),
             ('acc', accuracy_score(gold, pred), lambda x: f'{x:.4f}'),
             ('macro_p', precision_score(gold, pred, average='macro', zero_division=0), lambda x: f'{x:.4f}'),
             ('macro_r', recall_score(gold, pred, average='macro', zero_division=0), lambda x: f'{x:.4f}'),
