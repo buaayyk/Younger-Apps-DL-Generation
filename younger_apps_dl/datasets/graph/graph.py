@@ -6,7 +6,7 @@
 # Author: Jason Young (杨郑鑫).
 # E-Mail: AI.Jason.Young@outlook.com
 # Last Modified by: Jason Young (杨郑鑫)
-# Last Modified time: 2025-04-15 12:52:37
+# Last Modified time: 2025-04-15 12:55:32
 # Copyright (c) 2025 Yangs.AI
 # 
 # This source code is licensed under the Apache License 2.0 found in the
@@ -129,7 +129,7 @@ class GraphDataset(Dataset):
 
         self.all_graph_data: list[GraphData] = list()
         if self.all_in:
-            for processed_path in self.processed_paths:
+            for processed_path in tqdm.tqdm(self.processed_paths, total=len(self.processed_paths), desc="All In GraphData:"):
                 self.all_graph_data.append(torch.load(processed_path))
 
     @classmethod
