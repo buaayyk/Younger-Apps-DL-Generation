@@ -6,7 +6,7 @@
 # Author: Jason Young (杨郑鑫).
 # E-Mail: AI.Jason.Young@outlook.com
 # Last Modified by: Jason Young (杨郑鑫)
-# Last Modified time: 2025-04-15 09:27:09
+# Last Modified time: 2025-04-15 09:46:53
 # Copyright (c) 2025 Yangs.AI
 # 
 # This source code is licensed under the Apache License 2.0 found in the
@@ -287,7 +287,7 @@ class BasicEmbedding(BaseTask[BasicEmbeddingOptions]):
                 else:
                     x, edge_index, golden = self._mask_(minibatch, self.dicts['t2i'], self.options.mask_ratio, self.options.mask_method)
                     output = torch.softmax(model(x, edge_index), dim=-1)
-                loss += torch.nn.functional.cross_entropy(output, golden.squeeze(1), ignore_index=-1).cpu().numpy()
+                loss += torch.nn.functional.cross_entropy(output, golden.squeeze(1), ignore_index=-1)
 
                 outputs.append(output)
                 goldens.append(golden)
@@ -309,13 +309,13 @@ class BasicEmbedding(BaseTask[BasicEmbeddingOptions]):
 
         metrics = [
             ('loss', loss, lambda x: f'{x:.4f}'),
-            ('acc', accuracy_score(gold, pred), lambda x: f'{x:.4f}'),
-            ('macro_p', precision_score(gold, pred, average='macro', zero_division=0), lambda x: f'{x:.4f}'),
-            ('macro_r', recall_score(gold, pred, average='macro', zero_division=0), lambda x: f'{x:.4f}'),
-            ('macro_f1', f1_score(gold, pred, average='macro', zero_division=0), lambda x: f'{x:.4f}'),
-            ('micro_f1', f1_score(gold, pred, average='micro', zero_division=0), lambda x: f'{x:.4f}'),
-            ('top3_acc', top_k_accuracy_score(gold, score, k = 3, labels=range(score.shape[1])), lambda x: f'{x:.4f}'),
-            ('top5_acc', top_k_accuracy_score(gold, score, k = 5, labels=range(score.shape[1])), lambda x: f'{x:.4f}') 
+            ('acc', torch.tensor(accuracy_score(gold, pred), device=x.device), lambda x: f'{x:.4f}'),
+            ('macro_p', torch.tensor(precision_score(gold, pred, average='macro', zero_division=0), device=x.device), lambda x: f'{x:.4f}'),
+            ('macro_r', torch.tensor(recall_score(gold, pred, average='macro', zero_division=0), device=x.device), lambda x: f'{x:.4f}'),
+            ('macro_f1', torch.tensor(f1_score(gold, pred, average='macro', zero_division=0), device=x.device), lambda x: f'{x:.4f}'),
+            ('micro_f1', torch.tensor(f1_score(gold, pred, average='micro', zero_division=0), device=x.device), lambda x: f'{x:.4f}'),
+            ('top3_acc', torch.tensor(top_k_accuracy_score(gold, score, k = 3, labels=range(score.shape[1])), device=x.device), lambda x: f'{x:.4f}'),
+            ('top5_acc', torch.tensor(top_k_accuracy_score(gold, score, k = 5, labels=range(score.shape[1])), device=x.device), lambda x: f'{x:.4f}') 
         ]
         return metrics
 
