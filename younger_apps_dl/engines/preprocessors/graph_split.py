@@ -6,7 +6,7 @@
 # Author: Jason Young (杨郑鑫).
 # E-Mail: AI.Jason.Young@outlook.com
 # Last Modified by: Jason Young (杨郑鑫)
-# Last Modified time: 2025-04-14 08:31:38
+# Last Modified time: 2025-04-15 10:46:29
 # Copyright (c) 2025 Yangs.AI
 # 
 # This source code is licensed under the Apache License 2.0 found in the
@@ -138,7 +138,7 @@ class GraphSplit(BaseEngine[GraphSplitOptions]):
         logger.info(f'Total {len(uuid_occurence)} Different Operators')
 
         ignored = set(uuid for uuid, occurence in uuid_occurence.items() if self.options.uuid_threshold is not None and self.options.uuid_threshold <= occurence )
-        logger.info(f'After Ignore: {len(ignored)} Different Operators')
+        logger.info(f'After Ignore: {len(uuid_occurence) - len(ignored)} Different Operators')
 
         logger.info(f'User Specified # of Splits - Training/Validation/Test = {self.options.training_dataset_size} / {self.options.validation_dataset_size} / {self.options.test_dataset_size}')
 
