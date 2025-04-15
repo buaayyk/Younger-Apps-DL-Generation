@@ -6,7 +6,7 @@
 # Author: Jason Young (杨郑鑫).
 # E-Mail: AI.Jason.Young@outlook.com
 # Last Modified by: Jason Young (杨郑鑫)
-# Last Modified time: 2025-04-15 07:02:35
+# Last Modified time: 2025-04-15 08:19:55
 # Copyright (c) 2024 Yangs.AI
 # 
 # This source code is licensed under the Apache License 2.0 found in the
@@ -263,7 +263,7 @@ class StandardTrainer(BaseEngine[StandardTrainerOptions]):
                 logger.info(f'-> Skip Epoch {epoch} Before Epoch {start_from_epoch}.')
                 continue
 
-            train_sampler.set_epoch(start_from_epoch)
+            train_sampler.set_epoch(epoch)
 
             tic = time.time()
             on_epoch_begin_fn(epoch)
