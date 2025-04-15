@@ -6,7 +6,7 @@
 # Author: Jason Young (杨郑鑫).
 # E-Mail: AI.Jason.Young@outlook.com
 # Last Modified by: Jason Young (杨郑鑫)
-# Last Modified time: 2025-04-15 08:49:02
+# Last Modified time: 2025-04-15 09:02:22
 # Copyright (c) 2024 Yangs.AI
 # 
 # This source code is licensed under the Apache License 2.0 found in the
@@ -244,7 +244,7 @@ class StandardTrainer(BaseEngine[StandardTrainerOptions]):
             logger.disabled = True
 
         distributed.init_process_group('nccl', rank=rank, world_size=self.options.node_number)
-        model = torch.nn.parallel.DistributedDataParallel(model, find_unused_parameters=False)
+        model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[rank], find_unused_parameters=False)
 
         train_sampler = DistributedSampler(train_dataset, rank=rank, num_replicas=self.options.node_number, seed=self.options.seed, shuffle=self.options.shuffle, drop_last=True)
 
