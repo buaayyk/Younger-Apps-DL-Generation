@@ -6,7 +6,7 @@
 # Author: Jason Young (杨郑鑫).
 # E-Mail: AI.Jason.Young@outlook.com
 # Last Modified by: Jason Young (杨郑鑫)
-# Last Modified time: 2025-04-15 09:46:53
+# Last Modified time: 2025-04-15 18:40:57
 # Copyright (c) 2025 Yangs.AI
 # 
 # This source code is licensed under the Apache License 2.0 found in the
@@ -178,6 +178,14 @@ class BasicEmbedding(BaseTask[BasicEmbeddingOptions]):
 
     def predict(self):
         predictor = StandardPredictor(self.options.predictor)
+        self.dicts = GraphDataset.load_dicts(GraphDataset.load_meta(predictor.options.raw.load_dirpath.joinpath('meta.json')))
+        self.model = self._build_model_(
+            len(self.dicts['i2t']),
+            self.options.model.node_emb_dim,
+            self.options.model.hidden_dim,
+            self.options.model.dropout_rate,
+            self.options.model.layer_number
+        )
         predictor.run(
             self.model,
             self._predict_raw_fn_,
@@ -425,7 +433,6 @@ class BasicEmbedding(BaseTask[BasicEmbeddingOptions]):
 
     def _predict_raw_fn_(self, model: torch.nn.Module, load_dirpath: pathlib.Path, save_dirpath: pathlib.Path):
         logicx_filepaths = [logicx_filepath for logicx_filepath in load_dirpath.joinpath('logicxs').iterdir()]
-        dicts = GraphDataset.load_dicts(GraphDataset.load_meta(load_dirpath.joinpath('meta.json')))
         device_descriptor = next(model.parameters()).device
 
         from torch_geometric.loader import NeighborLoader
@@ -440,7 +447,7 @@ class BasicEmbedding(BaseTask[BasicEmbeddingOptions]):
             logicx.load(logicx_filepath)
             graph_hashes.append(LogicX.hash(logicx))
 
-            data = GraphDataset.process_graph_data(logicx, dicts)
+            data = GraphDataset.process_graph_data(logicx, self.dicts)
             loader = NeighborLoader(
                 data,
                 num_neighbors=[-1] * len(model.encoder.layers),
