@@ -6,7 +6,7 @@
 # Author: Jason Young (杨郑鑫).
 # E-Mail: AI.Jason.Young@outlook.com
 # Last Modified by: Jason Young (杨郑鑫)
-# Last Modified time: 2025-04-13 15:53:51
+# Last Modified time: 2025-04-15 12:52:37
 # Copyright (c) 2025 Yangs.AI
 # 
 # This source code is licensed under the Apache License 2.0 found in the
@@ -85,7 +85,10 @@ class GraphDataset(Dataset):
         return len(self.hashs)
 
     def get(self, index: int) -> GraphData:
-        graph_data = torch.load(os.path.join(self.processed_dir, self.processed_file_names[index]))
+        if self.all_in:
+            graph_data = self.all_graph_data[index]
+        else:
+            graph_data = torch.load(os.path.join(self.processed_dir, self.processed_file_names[index]))
         return graph_data
 
     def __init__(
@@ -97,6 +100,7 @@ class GraphDataset(Dataset):
         name: str = 'YLDL-G2N',
         split: Literal['train', 'valid', 'test'] = 'train',
         worker_number: int = 4,
+        all_in: bool = True,
 
         root: str | None = None,
         transform: Callable | None = None,
@@ -115,12 +119,18 @@ class GraphDataset(Dataset):
         self.name = name
         self.split = split
         self.worker_number = worker_number
+        self.all_in = all_in
 
         self.meta = self.__class__.load_meta(self.meta_filepath)
         self.dicts = self.__class__.load_dicts(self.meta)
         self.hashs = self.__class__.load_hashs(self.meta)
 
         super().__init__(root, transform, pre_transform, pre_filter, log, force_reload)
+
+        self.all_graph_data: list[GraphData] = list()
+        if self.all_in:
+            for processed_path in self.processed_paths:
+                self.all_graph_data.append(torch.load(processed_path))
 
     @classmethod
     def load_meta(cls, meta_filepath: str) -> dict[str, Any]:
