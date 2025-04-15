@@ -6,7 +6,7 @@
 # Author: Jason Young (杨郑鑫).
 # E-Mail: AI.Jason.Young@outlook.com
 # Last Modified by: Jason Young (杨郑鑫)
-# Last Modified time: 2025-04-15 06:53:27
+# Last Modified time: 2025-04-15 09:19:16
 # Copyright (c) 2025 Yangs.AI
 # 
 # This source code is licensed under the Apache License 2.0 found in the
@@ -287,7 +287,7 @@ class BasicEmbedding(BaseTask[BasicEmbeddingOptions]):
                 else:
                     x, edge_index, golden = self._mask_(minibatch, self.dicts['t2i'], self.options.mask_ratio, self.options.mask_method)
                     output = torch.softmax(model(x, edge_index), dim=-1)
-                loss += torch.nn.functional.cross_entropy(output, golden.squeeze(1), ignore_index=-1).cpu().numpy()
+                loss += torch.nn.functional.cross_entropy(output, golden.squeeze(1), ignore_index=-1)
 
                 outputs.append(output)
                 goldens.append(golden)
@@ -300,9 +300,9 @@ class BasicEmbedding(BaseTask[BasicEmbeddingOptions]):
         outputs = outputs[val_indices]
         goldens = goldens[val_indices]
 
-        score = outputs.cpu().numpy()
-        pred = outputs.max(1)[1].cpu().numpy()
-        gold = goldens.cpu().numpy()
+        score = outputs
+        pred = outputs
+        gold = goldens
 
         print("pred[:5]:", pred[:5])
         print("gold[:5]:", gold[:5])

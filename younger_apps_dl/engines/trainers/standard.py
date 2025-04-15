@@ -6,7 +6,7 @@
 # Author: Jason Young (杨郑鑫).
 # E-Mail: AI.Jason.Young@outlook.com
 # Last Modified by: Jason Young (杨郑鑫)
-# Last Modified time: 2025-04-15 09:02:22
+# Last Modified time: 2025-04-15 09:15:33
 # Copyright (c) 2024 Yangs.AI
 # 
 # This source code is licensed under the Apache License 2.0 found in the
@@ -284,8 +284,8 @@ class StandardTrainer(BaseEngine[StandardTrainerOptions]):
                 if itr % self.options.update_period == 0:
                     metrics[0][1].backward(retain_graph=False)
                     optimizer.step()
-                    optimizer.zero_grad()
                     on_update_fn(itr)
+                    optimizer.zero_grad()
                 else:
                     metrics[0][1].backward(retain_graph=True)
 
