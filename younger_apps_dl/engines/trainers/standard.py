@@ -6,7 +6,7 @@
 # Author: Jason Young (杨郑鑫).
 # E-Mail: AI.Jason.Young@outlook.com
 # Last Modified by: Jason Young (杨郑鑫)
-# Last Modified time: 2025-04-15 09:15:33
+# Last Modified time: 2025-04-15 09:28:25
 # Copyright (c) 2024 Yangs.AI
 # 
 # This source code is licensed under the Apache License 2.0 found in the
@@ -80,7 +80,7 @@ class StandardTrainer(BaseEngine[StandardTrainerOptions]):
                 if isinstance(metric_value, torch.Tensor):
                     metric_value = metric_value.detach()
                 if self.options.distributed:
-                    distributed.all_reduce(metric_value, op = distributed.ReduceOp.SUM)
+                    distributed.all_reduce(torch.Tensor(metric_value), op = distributed.ReduceOp.SUM)
                 logs.append(f'[{metric_name}]={metric_format(float(metric_value / self.options.node_number))}')
             logger.info(f'   [Epoch/Step/Itr]@[{epoch}/{step}/{itr}] - {" ".join(logs)}')
 
