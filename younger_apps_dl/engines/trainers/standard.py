@@ -6,7 +6,7 @@
 # Author: Jason Young (杨郑鑫).
 # E-Mail: AI.Jason.Young@outlook.com
 # Last Modified by: Jason Young (杨郑鑫)
-# Last Modified time: 2025-04-15 08:19:55
+# Last Modified time: 2025-04-15 08:22:03
 # Copyright (c) 2024 Yangs.AI
 # 
 # This source code is licensed under the Apache License 2.0 found in the
@@ -232,6 +232,7 @@ class StandardTrainer(BaseEngine[StandardTrainerOptions]):
         torch.autograd.set_detect_anomaly(True)
 
         device_descriptor = get_device_descriptor('GPU', rank)
+        torch.cuda.set_device(rank)
         model.to(device=device_descriptor)
         logger.info(f'-> Process {rank} Use Device \'{device_descriptor}\'')
 
@@ -292,25 +293,25 @@ class StandardTrainer(BaseEngine[StandardTrainerOptions]):
                     self.log(epoch, step, itr, metrics)
 
                 # Validate and Save Model
-                distributed.barrier()
-                if itr % self.options.saving_period == 0 and master_flag:
-                    logger.info(f'-> Validating ...')
-                    model.eval()
-                    stic = time.time()
-                    with torch.no_grad():
-                        metrics = valid_fn(model, valid_dataloader)
-                    stoc = time.time()
-                    self.log(epoch, step, itr, metrics)
-                    model.train()
-                    logger.info(f'   Time Cost: {stoc-stic:.2f}s')
+                if itr % self.options.saving_period == 0:
+                    if master_flag:
+                        logger.info(f'-> Validating ...')
+                        model.eval()
+                        stic = time.time()
+                        with torch.no_grad():
+                            metrics = valid_fn(model, valid_dataloader)
+                        stoc = time.time()
+                        self.log(epoch, step, itr, metrics)
+                        model.train()
+                        logger.info(f'   Time Cost: {stoc-stic:.2f}s')
 
-                    logger.info(f'-> Saving ...')
-                    stic = time.time()
-                    checkpoint = Checkpoint(epoch, step, itr, model.module.state_dict(), optimizer.state_dict(), scheduler.state_dict(), dict(((metric[0], metric[1]) for metric in metrics)))
-                    save_checkpoint(checkpoint, self.options.checkpoint_savepath, self.options.checkpoint_basename, self.options.checkpoint_keepdisk)
-                    stoc = time.time()
-                    logger.info(f'   Time Cost: {stoc-stic:.2f}s')
-                distributed.barrier()
+                        logger.info(f'-> Saving ...')
+                        stic = time.time()
+                        checkpoint = Checkpoint(epoch, step, itr, model.module.state_dict(), optimizer.state_dict(), scheduler.state_dict(), dict(((metric[0], metric[1]) for metric in metrics)))
+                        save_checkpoint(checkpoint, self.options.checkpoint_savepath, self.options.checkpoint_basename, self.options.checkpoint_keepdisk)
+                        stoc = time.time()
+                        logger.info(f'   Time Cost: {stoc-stic:.2f}s')
+                    distributed.barrier()
                 on_step_end_fn(step)
 
             on_epoch_end_fn(epoch)
