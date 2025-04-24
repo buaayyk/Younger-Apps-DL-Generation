@@ -6,7 +6,7 @@
 # Author: Jason Young (杨郑鑫).
 # E-Mail: AI.Jason.Young@outlook.com
 # Last Modified by: Jason Young (杨郑鑫)
-# Last Modified time: 2025-04-15 09:43:08
+# Last Modified time: 2025-04-24 17:01:20
 # Copyright (c) 2024 Yangs.AI
 # 
 # This source code is licensed under the Apache License 2.0 found in the
@@ -27,8 +27,9 @@ from torch.utils.data import RandomSampler
 from torch.utils.data.distributed import DistributedSampler
 
 from younger.commons.io import create_dir
+from younger.commons.utils import no_operation
 
-from younger_apps_dl.commons.utils import get_device_descriptor, make_reproducible
+from younger_apps_dl.commons.utils import get_device_descriptor, make_reproducible, broadcast_object
 from younger_apps_dl.commons.logging import logger, equip_logger
 from younger_apps_dl.commons.checkpoint import load_checkpoint, save_checkpoint, Checkpoint
 
@@ -59,6 +60,12 @@ class StandardTrainerOptions(BaseModel):
     train_batch_size: int = Field(32, ge=1, description='Batch size for training.')
     valid_batch_size: int = Field(32, ge=1, description='Batch size for validation.')
 
+    early_stop_enable: bool = Field(False, description='Stop training early if the metric no longer improves.')
+    early_stop_target: Literal['min', 'max'] = Field('min', description='Whether the monitored metric should be minimized or maximized.')
+    early_stop_metric: str = Field('loss', description='The name of the metric to monitor for early stopping.')
+    early_stop_patience: int = Field(10, ge=1, description='Number of evaluation round to wait for an improvement before stopping.')
+    early_stop_tolerance: float = Field(0.05, ge=0, description='Minimum change in the monitored metric to qualify as an improvement.')
+
     # Distribution Options
     distributed: bool = Field(False, description='Whether to use distributed training. If False, the options about distributed training will take no effect.')
     master_addr: str  = Field('localhost', description='Master address for distributed training.')
@@ -73,15 +80,16 @@ class StandardTrainerOptions(BaseModel):
 class StandardTrainer(BaseEngine[StandardTrainerOptions]):
     OPTIONS = StandardTrainerOptions
 
-    def log(self, epoch: int, step: int, itr: int, metrics: list[tuple[str, torch.Tensor | float, Callable[[float], str]]]) -> None:
+    def log(self, epoch: int, step: int, itr: int, metrics: list[tuple[str, torch.Tensor | float, Callable[[float], str]]], stage: Literal['train', 'valid']) -> None:
         with torch.no_grad():
             logs = list()
             for metric_name, metric_value, metric_format in metrics:
                 if isinstance(metric_value, torch.Tensor):
                     metric_value = metric_value.detach()
-                if self.options.distributed:
+                if stage == 'train' and self.options.distributed:
                     distributed.all_reduce(metric_value, op = distributed.ReduceOp.SUM)
-                logs.append(f'[{metric_name}]={metric_format(float(metric_value / self.options.node_number))}')
+                    metric_value = metric_value / self.options.node_number
+                logs.append(f'[{metric_name}]={metric_format(float(metric_value))}')
             logger.info(f'   [Epoch/Step/Itr]@[{epoch}/{step}/{itr}] - {" ".join(logs)}')
 
     def run(
@@ -89,13 +97,12 @@ class StandardTrainer(BaseEngine[StandardTrainerOptions]):
         model: torch.nn.Module, optimizer: torch.optim.Optimizer, scheduler: torch.optim.lr_scheduler.LRScheduler,
         train_dataset: torch.utils.data.Dataset,
         valid_dataset: torch.utils.data.Dataset,
-        train_fn: Callable[[torch.nn.Module, Any], list[tuple[str, torch.Tensor, Callable[[float], str]]]],
-        valid_fn: Callable[[torch.nn.Module, Any], list[tuple[str, torch.Tensor, Callable[[float], str]]]],
-        on_step_begin_fn: Callable[[int], None],
-        on_step_end_fn: Callable[[int], None],
-        on_epoch_begin_fn: Callable[[int], None],
-        on_epoch_end_fn: Callable[[int], None],
-        on_update_fn: Callable[[int], None],
+        train_fn: Callable[[torch.nn.Module, Any], list[tuple[str, torch.Tensor | float, Callable[[float], str]]]],
+        valid_fn: Callable[[torch.nn.Module, Any], list[tuple[str, torch.Tensor | float, Callable[[float], str]]]],
+        on_step_begin_fn: Callable[[int], None] = no_operation,
+        on_step_end_fn: Callable[[int], None] = no_operation,
+        on_epoch_begin_fn: Callable[[int], None] = no_operation,
+        on_epoch_end_fn: Callable[[int], None] = no_operation,
         dataloader_type: Literal['pth', 'pyg'] = 'pth',
         logging_filepath: pathlib.Path | None = None,
     ) -> None:
@@ -113,9 +120,9 @@ class StandardTrainer(BaseEngine[StandardTrainerOptions]):
         :param valid_dataset: _description_
         :type valid_dataset: torch.utils.data.Dataset
         :param train_fn: A callable that defines how to process a `minibatch` during training, feeding it to the model and returning the computed metrics (names, values, formats). The 0th metric must be the loss to be optimized.
-        :type train_fn: Callable[[torch.nn.Module, Any], list[tuple[str, torch.Tensor, Callable[[float], str]]]]
+        :type train_fn: Callable[[torch.nn.Module, Any], list[tuple[str, torch.Tensor | float, Callable[[float], str]]]]
         :param valid_fn: A callable that defines how to process a `sequence` of `minibatch` during validation, feeding it to the model and returning the computed metrics (names, values, formats).
-        :type valid_fn: Callable[[torch.nn.Module, Any], list[tuple[str, torch.Tensor, Callable[[float], str]]]]
+        :type valid_fn: Callable[[torch.nn.Module, Any], list[tuple[str, torch.Tensor | float, Callable[[float], str]]]]
         :param on_step_end_fn: _description_
         :type on_step_end_fn: Callable[[int], None]
         :param on_epoch_end_fn: _description_
@@ -189,7 +196,6 @@ class StandardTrainer(BaseEngine[StandardTrainerOptions]):
                 on_step_end_fn,
                 on_epoch_begin_fn,
                 on_epoch_end_fn,
-                on_update_fn,
                 dataloader_type,
                 logging_filepath,
             ), nprocs=node_number, join=True)
@@ -203,7 +209,6 @@ class StandardTrainer(BaseEngine[StandardTrainerOptions]):
                 on_step_end_fn,
                 on_epoch_begin_fn,
                 on_epoch_end_fn,
-                on_update_fn,
                 dataloader_type,
                 logging_filepath,
             )
@@ -216,13 +221,12 @@ class StandardTrainer(BaseEngine[StandardTrainerOptions]):
         model: torch.nn.Module, optimizer: torch.optim.Optimizer, scheduler: torch.optim.lr_scheduler.LRScheduler,
         train_dataset: torch.utils.data.Dataset,
         valid_dataset: torch.utils.data.Dataset,
-        train_fn: Callable[[torch.nn.Module, Any], tuple[list[str], list[torch.Tensor], list[Callable[[float], str]]]],
-        valid_fn: Callable[[torch.nn.Module, Any], tuple[list[str], list[torch.Tensor], list[Callable[[float], str]]]],
-        on_step_begin_fn: Callable[[int], None],
-        on_step_end_fn: Callable[[int], None],
-        on_epoch_begin_fn: Callable[[int], None],
-        on_epoch_end_fn: Callable[[int], None],
-        on_update_fn: Callable[[int], None],
+        train_fn: Callable[[torch.nn.Module, Any], list[tuple[str, torch.Tensor | float, Callable[[float], str]]]],
+        valid_fn: Callable[[torch.nn.Module, Any], list[tuple[str, torch.Tensor | float, Callable[[float], str]]]],
+        on_step_begin_fn: Callable[[int], None] = no_operation,
+        on_step_end_fn: Callable[[int], None] = no_operation,
+        on_epoch_begin_fn: Callable[[int], None] = no_operation,
+        on_epoch_end_fn: Callable[[int], None] = no_operation,
         dataloader_type: Literal['pth', 'pyg'] = 'pth',
         logging_filepath: pathlib.Path | None = None,
     ) -> None:
@@ -256,6 +260,10 @@ class StandardTrainer(BaseEngine[StandardTrainerOptions]):
         train_dataloader = DataLoader(train_dataset, batch_size=self.options.train_batch_size, sampler=train_sampler, pin_memory=True, persistent_workers=True, num_workers=self.options.worker_number)
         valid_dataloader = DataLoader(valid_dataset, batch_size=self.options.valid_batch_size, shuffle=False)
 
+        early_stop = False
+        if self.options.early_stop_enable:
+            early_stop_progress = 0
+            early_stop_best_value = float('inf')
         model.train()
         optimizer.zero_grad()
         itr = start_from_itr
@@ -279,19 +287,18 @@ class StandardTrainer(BaseEngine[StandardTrainerOptions]):
                 itr = itr + 1
 
                 metrics = train_fn(model, minibatch)
+                # Delegate backward to `train_fn` for cases like 1 forward + N backward.
+                # metrics[0][1].backward()
 
                 # Update Model Parameters
                 if itr % self.options.update_period == 0:
-                    metrics[0][1].backward(retain_graph=False)
                     optimizer.step()
-                    on_update_fn(itr)
                     optimizer.zero_grad()
-                else:
-                    metrics[0][1].backward(retain_graph=True)
+                    scheduler.step()
 
                 # Report Metrics
                 if itr % self.options.report_period == 0:
-                    self.log(epoch, step, itr, metrics)
+                    self.log(epoch, step, itr, metrics, 'train')
 
                 # Validate and Save Model
                 if itr % self.options.saving_period == 0:
@@ -302,7 +309,7 @@ class StandardTrainer(BaseEngine[StandardTrainerOptions]):
                         with torch.no_grad():
                             metrics = valid_fn(model, valid_dataloader)
                         stoc = time.time()
-                        self.log(epoch, step, itr, metrics)
+                        self.log(epoch, step, itr, metrics, 'train')
                         model.train()
                         logger.info(f'   Time Cost: {stoc-stic:.2f}s')
 
@@ -312,10 +319,29 @@ class StandardTrainer(BaseEngine[StandardTrainerOptions]):
                         save_checkpoint(checkpoint, self.options.checkpoint_savepath, self.options.checkpoint_basename, self.options.checkpoint_keepdisk)
                         stoc = time.time()
                         logger.info(f'   Time Cost: {stoc-stic:.2f}s')
-                    distributed.barrier()
+
+                        if self.options.early_stop_enable:
+                            if self.options.early_stop_target == 'min':
+                                value = checkpoint.metrics[self.options.early_stop_metric]
+                            if self.options.early_stop_target == 'max':
+                                value = checkpoint.metrics[self.options.early_stop_metric] * -1
+
+                            if value < early_stop_best_value - self.options.early_stop_tolerance:
+                                early_stop_progress = 0
+                                early_stop_best_value = value
+                            else:
+                                early_stop_progress = early_stop_progress + 1
+
+                            if early_stop_progress == self.options.early_stop_patience:
+                                early_stop = broadcast_object(True, rank)
+
                 on_step_end_fn(step)
+                if early_stop:
+                    break
 
             on_epoch_end_fn(epoch)
+            if early_stop:
+                break
             toc = time.time()
             logger.info(f'-> Epoch@{epoch} Finished. Time Cost = {toc-tic:.2f}s')
 
@@ -327,13 +353,12 @@ class StandardTrainer(BaseEngine[StandardTrainerOptions]):
         model: torch.nn.Module, optimizer: torch.optim.Optimizer, scheduler: torch.optim.lr_scheduler.LRScheduler,
         train_dataset: torch.utils.data.Dataset,
         valid_dataset: torch.utils.data.Dataset,
-        train_fn: Callable[[torch.nn.Module, Any], tuple[list[str], list[torch.Tensor], list[Callable[[float], str]]]],
-        valid_fn: Callable[[torch.nn.Module, Any], tuple[list[str], list[torch.Tensor], list[Callable[[float], str]]]],
-        on_step_begin_fn: Callable[[int], None],
-        on_step_end_fn: Callable[[int], None],
-        on_epoch_begin_fn: Callable[[int], None],
-        on_epoch_end_fn: Callable[[int], None],
-        on_update_fn: Callable[[int], None],
+        train_fn: Callable[[torch.nn.Module, Any], list[tuple[str, torch.Tensor | float, Callable[[float], str]]]],
+        valid_fn: Callable[[torch.nn.Module, Any], list[tuple[str, torch.Tensor | float, Callable[[float], str]]]],
+        on_step_begin_fn: Callable[[int], None] = no_operation,
+        on_step_end_fn: Callable[[int], None] = no_operation,
+        on_epoch_begin_fn: Callable[[int], None] = no_operation,
+        on_epoch_end_fn: Callable[[int], None] = no_operation,
         dataloader_type: Literal['pth', 'pyg'] = 'pth',
         logging_filepath: pathlib.Path | None = None,
     ) -> None:
@@ -354,6 +379,10 @@ class StandardTrainer(BaseEngine[StandardTrainerOptions]):
         train_dataloader = DataLoader(train_dataset, batch_size=self.options.train_batch_size, sampler=train_sampler, pin_memory=True, persistent_workers=True, num_workers=self.options.worker_number)
         valid_dataloader = DataLoader(valid_dataset, batch_size=self.options.valid_batch_size, shuffle=False)
 
+        early_stop = False
+        if self.options.early_stop_enable:
+            early_stop_progress = 0
+            early_stop_best_value = float('inf')
         model.train()
         optimizer.zero_grad()
         itr = start_from_itr
@@ -375,20 +404,18 @@ class StandardTrainer(BaseEngine[StandardTrainerOptions]):
                 itr = itr + 1
 
                 metrics = train_fn(model, minibatch)
-
+                # Delegate backward to `train_fn` for cases like 1 forward + N backward.
+                # metrics[0][1].backward()
 
                 # Update Model Parameters
                 if itr % self.options.update_period == 0:
-                    metrics[0][1].backward(retain_graph=False)
                     optimizer.step()
                     optimizer.zero_grad()
-                    on_update_fn(itr)
-                else:
-                    metrics[0][1].backward(retain_graph=True)
+                    scheduler.step()
 
                 # Report Metrics
                 if itr % self.options.report_period == 0:
-                    self.log(epoch, step, itr, metrics)
+                    self.log(epoch, step, itr, metrics, 'train')
 
                 # Validate and Save Model
                 if itr % self.options.saving_period == 0:
@@ -398,7 +425,7 @@ class StandardTrainer(BaseEngine[StandardTrainerOptions]):
                     with torch.no_grad():
                         metrics = valid_fn(model, valid_dataloader)
                     stoc = time.time()
-                    self.log(epoch, step, itr, metrics)
+                    self.log(epoch, step, itr, metrics, 'train')
                     model.train()
                     logger.info(f'   Time Cost: {stoc-stic:.2f}s')
 
@@ -408,7 +435,27 @@ class StandardTrainer(BaseEngine[StandardTrainerOptions]):
                     save_checkpoint(checkpoint, self.options.checkpoint_savepath, self.options.checkpoint_basename, self.options.checkpoint_keepdisk)
                     stoc = time.time()
                     logger.info(f'   Time Cost: {stoc-stic:.2f}s')
+
+                    if self.options.early_stop_enable:
+                        if self.options.early_stop_target == 'min':
+                            value = checkpoint.metrics[self.options.early_stop_metric]
+                        if self.options.early_stop_target == 'max':
+                            value = checkpoint.metrics[self.options.early_stop_metric] * -1
+
+                        if value < early_stop_best_value - self.options.early_stop_tolerance:
+                            early_stop_progress = 0
+                            early_stop_best_value = value
+                        else:
+                            early_stop_progress = early_stop_progress + 1
+
+                        if early_stop_progress == self.options.early_stop_patience:
+                            early_stop = True
+
                 on_step_end_fn(step)
+                if early_stop:
+                    break
             on_epoch_end_fn(epoch)
+            if early_stop:
+                break
             toc = time.time()
             logger.info(f'-> Epoch@{epoch} Finished. Time Cost = {toc-tic:.2f}s')

@@ -6,7 +6,7 @@
 # Author: Jason Young (杨郑鑫).
 # E-Mail: AI.Jason.Young@outlook.com
 # Last Modified by: Jason Young (杨郑鑫)
-# Last Modified time: 2025-04-15 10:46:29
+# Last Modified time: 2025-04-24 09:48:02
 # Copyright (c) 2025 Yangs.AI
 # 
 # This source code is licensed under the Apache License 2.0 found in the
@@ -288,6 +288,7 @@ class GraphSplit(BaseEngine[GraphSplitOptions]):
         induced_subgraph = logicx.dag.subgraph(bfs_flags)
 
         subgraph = networkx.DiGraph()
+        subgraph.graph['level'] = True
         subgraph.add_nodes_from(induced_subgraph.nodes(data=False))
         subgraph.add_edges_from(induced_subgraph.edges(data=False))
         for node_index in subgraph.nodes():

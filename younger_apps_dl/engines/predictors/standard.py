@@ -6,7 +6,7 @@
 # Author: Jason Young (杨郑鑫).
 # E-Mail: AI.Jason.Young@outlook.com
 # Last Modified by: Jason Young (杨郑鑫)
-# Last Modified time: 2025-04-11 11:48:46
+# Last Modified time: 2025-04-24 09:43:42
 # Copyright (c) 2024 Yangs.AI
 # 
 # This source code is licensed under the Apache License 2.0 found in the
@@ -77,7 +77,7 @@ class StandardPredictor(BaseEngine[StandardPredictorOptions]):
         model: torch.nn.Module,
         predict_raw_fn: Callable[[torch.nn.Module, pathlib.Path, pathlib.Path], None],
     ) -> None:
-        logger.info(f'-> Load Raw From: {self.options.raw.dirpath}')
+        logger.info(f'-> Load Raw From: {self.options.raw.load_dirpath}')
 
         logger.info(f'-> Predicting ...')
         tic = time.time()

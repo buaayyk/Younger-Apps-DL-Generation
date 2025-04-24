@@ -6,7 +6,7 @@
 # Author: Jason Young (杨郑鑫).
 # E-Mail: AI.Jason.Young@outlook.com
 # Last Modified by: Jason Young (杨郑鑫)
-# Last Modified time: 2025-04-13 14:06:34
+# Last Modified time: 2025-04-24 16:46:17
 # Copyright (c) 2025 Yangs.AI
 # 
 # This source code is licensed under the Apache License 2.0 found in the
@@ -79,17 +79,7 @@ def average_model_state_dict(model_state_dicts: list[dict], weights: list[float]
     return final_state_dict
 
 
-# def save_operator_embedding(save_dirpath: pathlib.Path, weights: NDArray, op_dict: dict[str, int]):
-#     save_dirpath.mkdir(parents=True, exist_ok=False)
-#     weights_filepath = save_dirpath.joinpath(f'weights.npy')
-#     op_dict_filepath = save_dirpath.joinpath(f'op_dict.json')
-#     numpy.save(weights_filepath, weights)
-#     save_json(op_dict, op_dict_filepath, indent=2)
-
-
-# def load_operator_embedding(load_dirpath: pathlib.Path):
-#     weights_filepath = load_dirpath.joinpath(f'weights.npy')
-#     op_dict_filepath = load_dirpath.joinpath(f'op_dict.json')
-#     weights = numpy.load(weights_filepath)
-#     op_dict = load_json(op_dict_filepath)
-#     return weights, op_dict
+def broadcast_object(value: Any, src: int = 0) -> bool:
+    object_list = [value] if torch.distributed.get_rank() == src else [None]
+    torch.distributed.broadcast_object_list(object_list, src=src)
+    return object_list[0]
