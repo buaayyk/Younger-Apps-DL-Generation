@@ -6,7 +6,7 @@
 # Author: Jason Young (杨郑鑫).
 # E-Mail: AI.Jason.Young@outlook.com
 # Last Modified by: Jason Young (杨郑鑫)
-# Last Modified time: 2025-05-12 13:23:36
+# Last Modified time: 2025-05-12 16:21:04
 # Copyright (c) 2025 Yangs.AI
 # 
 # This source code is licensed under the Apache License 2.0 found in the
@@ -98,14 +98,18 @@ class BasicEmbedding(BaseTask[BasicEmbeddingOptions]):
         self.valid_dataset = self._build_dataset_(
             self.options.valid_dataset.meta_filepath,
             self.options.valid_dataset.raw_dirpath,
+            self.options.valid_dataset.raw_filename,
             self.options.valid_dataset.processed_dirpath,
+            self.options.valid_dataset.processed_filename,
             'valid',
             self.options.valid_dataset.worker_number
         )
         self.train_dataset = self._build_dataset_(
             self.options.train_dataset.meta_filepath,
             self.options.train_dataset.raw_dirpath,
+            self.options.train_dataset.raw_filename,
             self.options.train_dataset.processed_dirpath,
+            self.options.train_dataset.processed_filename,
             'train',
             self.options.train_dataset.worker_number
         )
@@ -153,7 +157,9 @@ class BasicEmbedding(BaseTask[BasicEmbeddingOptions]):
         self.test_dataset = self._build_dataset_(
             self.options.test_dataset.meta_filepath,
             self.options.test_dataset.raw_dirpath,
+            self.options.test_dataset.raw_filename,
             self.options.test_dataset.processed_dirpath,
+            self.options.test_dataset.processed_filename,
             'test',
             self.options.test_dataset.worker_number
         )
@@ -205,11 +211,13 @@ class BasicEmbedding(BaseTask[BasicEmbeddingOptions]):
         )
         return model
 
-    def _build_dataset_(self, meta_filepath: pathlib.Path, raw_dirpath: pathlib.Path, processed_dirpath: pathlib.Path, split: Literal['train', 'valid', 'test'], worker_number: int) -> DAGDataset:
+    def _build_dataset_(self, meta_filepath: pathlib.Path, raw_dirpath: pathlib.Path, raw_filename: str, processed_dirpath: pathlib.Path, processed_filename: str, split: Literal['train', 'valid', 'test'], worker_number: int) -> DAGDataset:
         dataset = DAGDataset(
             meta_filepath,
             raw_dirpath,
+            raw_filename,
             processed_dirpath,
+            processed_filename,
             split=split,
             worker_number=worker_number
         )
