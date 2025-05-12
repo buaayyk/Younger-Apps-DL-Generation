@@ -59,9 +59,7 @@ class SchedulerOptions(BaseModel):
 class DatasetOptions(BaseModel):
     meta_filepath: pathlib.Path = Field(..., description='Path to the metadata file that describes the dataset.')
     raw_dirpath: pathlib.Path = Field(..., description='Directory containing raw input data files.')
-    raw_filename: pathlib.Path = Field(..., description='Raw data file.')
     processed_dirpath: pathlib.Path = Field(..., description='Directory where processed dataset should be stored.')
-    processed_filename: pathlib.Path = Field(..., description='Processed data file.')
     worker_number: int = Field(4, description='Number of workers for parallel data loading or processing.')
 
 
@@ -100,18 +98,14 @@ class BasicEmbedding(BaseTask[BasicEmbeddingOptions]):
         self.valid_dataset = self._build_dataset_(
             self.options.valid_dataset.meta_filepath,
             self.options.valid_dataset.raw_dirpath,
-            self.options.valid_dataset.raw_filename,
             self.options.valid_dataset.processed_dirpath,
-            self.options.valid_dataset.processed_filename,
             'valid',
             self.options.valid_dataset.worker_number
         )
         self.train_dataset = self._build_dataset_(
             self.options.train_dataset.meta_filepath,
             self.options.train_dataset.raw_dirpath,
-            self.options.train_dataset.raw_filename,
             self.options.train_dataset.processed_dirpath,
-            self.options.train_dataset.processed_filename,
             'train',
             self.options.train_dataset.worker_number
         )
@@ -159,9 +153,7 @@ class BasicEmbedding(BaseTask[BasicEmbeddingOptions]):
         self.test_dataset = self._build_dataset_(
             self.options.test_dataset.meta_filepath,
             self.options.test_dataset.raw_dirpath,
-            self.options.test_dataset.raw_filename,
             self.options.test_dataset.processed_dirpath,
-            self.options.test_dataset.processed_filename,
             'test',
             self.options.test_dataset.worker_number
         )
@@ -213,13 +205,11 @@ class BasicEmbedding(BaseTask[BasicEmbeddingOptions]):
         )
         return model
 
-    def _build_dataset_(self, meta_filepath: pathlib.Path, raw_dirpath: pathlib.Path, raw_filename: str, processed_dirpath: pathlib.Path, processed_filename: str, split: Literal['train', 'valid', 'test'], worker_number: int) -> DAGDataset:
+    def _build_dataset_(self, meta_filepath: pathlib.Path, raw_dirpath: pathlib.Path, processed_dirpath: pathlib.Path, split: Literal['train', 'valid', 'test'], worker_number: int) -> DAGDataset:
         dataset = DAGDataset(
             meta_filepath,
             raw_dirpath,
-            raw_filename,
             processed_dirpath,
-            processed_filename,
             split=split,
             worker_number=worker_number
         )

@@ -157,16 +157,17 @@ class DAGSplit(BaseEngine[DAGSplitOptions]):
         
         if self.options.method == "Full":
             logger.info(f' -> Now Retrieving Full Graph')
-            with tqdm.tqdm(total=len(all_uuid_positions)) as progress_bar:
+            with tqdm.tqdm(total=len(all_nod2nids)) as progress_bar:
                 logicx_index = 0
-                splits["placeholder0"] = dict()
-                split_hashes["placeholder1"] = []
+                splits["placeholder1"] = dict()
+                split_hashes["placeholder1"] = dict()
+                split_hashes["placeholder1"]["placeholder2"] = []
                 for logicx_index in range(len(all_nod2nids)):
-                    split = self.__class__.retrieve_split(logicxs[logicx_index], logicxs[logicx_index].nodes(), -1, -1, "Full")    
+                    split = self.__class__.retrieve_split(logicxs[logicx_index], logicxs[logicx_index].dag.nodes(), -1, -1, "Full")    
                     split_hash = LogicX.hash(split)
-                    splits["placeholder0"][split_hash] = split
+                    splits["placeholder1"][split_hash] = split
                     split.dag.graph['origin'] = logicx_hashes[logicx_index]
-                    split_hashes["placeholder1"].append(split_hash)
+                    split_hashes["placeholder1"]["placeholder2"].append(split_hash)
                     progress_bar.update(1)
         else:
             # For Each Split Size:
@@ -214,6 +215,7 @@ class DAGSplit(BaseEngine[DAGSplitOptions]):
                             split_hash = LogicX.hash(split)
                             if split_hash in splits[split_size]:
                                 continue
+
                             split.dag.graph['origin'] = logicx_hashes[selected_logicx_index]
                             splits[split_size][split_hash] = split
                             current_split_count += 1
@@ -232,6 +234,14 @@ class DAGSplit(BaseEngine[DAGSplitOptions]):
             for uuid, uuid_split_hashes_at_split_scale in split_hashes_at_split_scale.items()
             for index, split_hash in enumerate(uuid_split_hashes_at_split_scale)
         ]
+
+        filtered_split_with_hashes = []
+        split_hash_set = set()
+        for split_hash, split in split_with_hashes:
+            if split_hash not in split_hash_set:
+                split_hash_set.add(split_hash)
+                filtered_split_with_hashes.append((split_hash, split))
+        split_with_hashes = filtered_split_with_hashes
 
         random.shuffle(split_with_hashes)
 
@@ -346,27 +356,18 @@ class DAGSplit(BaseEngine[DAGSplitOptions]):
             item_names = item_names,
         )
 
-        pack_filepath = save_dirpath.joinpath('pack.pkl')
-        # create_dir(items_dirpath)
+        items_dirpath = save_dirpath.joinpath('items')
+        create_dir(items_dirpath)
         meta_filepath = save_dirpath.joinpath('meta.json')
 
         logger.info(f'Saving META ... ')
         save_json(meta, meta_filepath, indent=2)
         logger.info(f'Saved.')
 
-        logger.info(f'Packing Items ... ')
-        package = dict()
-        with tqdm.tqdm(total=len(split_with_hashes), desc='Packing') as progress_bar:
+        logger.info(f'Saving Items ... ')
+        with tqdm.tqdm(total=len(split_with_hashes), desc='Saving') as progress_bar:
             for split_hash, split in split_with_hashes:
-                package[split_hash] = LogicX.saves_dag(split.dag)
+                item_filepath = items_dirpath.joinpath(f'{split_hash}')
+                split.save(item_filepath)
                 progress_bar.update(1)
-        logger.info(f'Packed.')
-
-        logger.info(f'Saving Package ... ')
-        save_pickle(package, pack_filepath)
-        # with tqdm.tqdm(total=len(split_with_hashes), desc='Saving') as progress_bar:
-        #     for split_hash, split in split_with_hashes:
-        #         item_filepath = items_dirpath.joinpath(f'{split_hash}')
-        #         split.save(item_filepath)
-        #         progress_bar.update(1)
         logger.info(f'Saved.')
