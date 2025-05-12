@@ -369,7 +369,7 @@ class StandardTrainer(BaseEngine[StandardTrainerOptions]):
 
         device_descriptor = get_device_descriptor('GPU', 0)
         model.to(device=device_descriptor)
-
+        
         train_sampler = RandomSampler(train_dataset) if self.options.shuffle else None
         if dataloader_type == 'pth':
             from torch.utils.data import DataLoader

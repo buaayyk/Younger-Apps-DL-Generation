@@ -59,7 +59,9 @@ class SchedulerOptions(BaseModel):
 class DatasetOptions(BaseModel):
     meta_filepath: pathlib.Path = Field(..., description='Path to the metadata file that describes the dataset.')
     raw_dirpath: pathlib.Path = Field(..., description='Directory containing raw input data files.')
+    raw_filename: pathlib.Path = Field(..., description='Raw data file.')
     processed_dirpath: pathlib.Path = Field(..., description='Directory where processed dataset should be stored.')
+    processed_filename: pathlib.Path = Field(..., description='Processed data file.')
     worker_number: int = Field(4, description='Number of workers for parallel data loading or processing.')
 
 
@@ -381,7 +383,7 @@ class BasicEmbedding(BaseTask[BasicEmbeddingOptions]):
                 mask_ratio = mask_ratio * x.shape[0] / unique.shape[0]
                 mask_ratio = 1 if mask_ratio > 1 else mask_ratio
 
-            mask_probability = torch.zeros_like(x, dtype=torch.float, device=self.device_descriptor)
+            mask_probability = torch.zeros_like(x, dtype=torch.float, device=device_descriptor)
             mask_probability[last_level_nodes] = torch.full(x.shape, mask_ratio, dtype=torch.float, device=device_descriptor)[last_level_nodes]
 
         mask_indices = torch.bernoulli(mask_probability).to(device_descriptor).bool()
@@ -451,7 +453,7 @@ class BasicEmbedding(BaseTask[BasicEmbeddingOptions]):
             logicx.load(logicx_filepath)
             dag_hashes.append(LogicX.hash(logicx))
 
-            data = DAGDataset.process_dag_data(logicx, self.dicts)
+            data = DAGDataset.process_dag_data(logicx.dag, self.dicts)
             loader = NeighborLoader(
                 data,
                 num_neighbors=[-1] * len(model.encoder.layers),

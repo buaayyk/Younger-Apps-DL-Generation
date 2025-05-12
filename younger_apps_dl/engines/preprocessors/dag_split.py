@@ -37,14 +37,15 @@ class DAGSplitOptions(BaseModel):
     load_dirpath: pathlib.Path = Field(..., description='Directory path to load LogicX\'s.')
     save_dirpath: pathlib.Path = Field(..., description='Directory path to save LogicX\'s.')
 
-    method: Literal['Random', 'Cascade', 'RandomFull', 'CascadeFull', 'Window', 'MixBasic', 'MixSuper'] = Field(..., description='DAG splitting method. '
+    method: Literal['Random', 'Cascade', 'RandomFull', 'CascadeFull', 'Window', 'MixBasic', 'MixSuper', "Full"] = Field(..., description='DAG splitting method. '
                                                                                                '\'Random\' selects a random node as center; BFS is used to expand the subgraph, retaining a random subset of nodes at each depth. '
                                                                                                '\'RandomFull\' is similar, but retains all nodes at each BFS depth. '
                                                                                                '\'Cascade\' restricts the expansion to ancestors or descendants of the center node, retaining a random subset at each depth. '
                                                                                                '\'CascadeFull\' is the full-retention version of \'Cascade\', preserving all nodes at each BFS depth.'
                                                                                                '\'Window\' randomly selects a graph and identifies nodes at a specific level; then performs a `split_scale`-step backward traversal, incorporating all traversed nodes and edges into the subgraph.'
                                                                                                '\'MixBasic\' uniformly samples one of the following methods for each subgraph: \'Random\', \'RandomFull\', \'Cascade\', or \'CascadeFull\'. '
-                                                                                               '\'MixSuper\' extends MixBasic by additionally including \'Window\' in the set of candidate methods, sampling uniformly among all five.')
+                                                                                               '\'MixSuper\' extends MixBasic by additionally including \'Window\' in the set of candidate methods, sampling uniformly among all five.'
+                                                                                               '\'Full\' means Full Graphs')
 
     split_scale: list[int] = Field(..., description='List of node counts to include in subgraph splits expanded from central nodes. Each value specifies a different subgraph split scale to generate.')
     split_count: int = Field(..., description='Number of subgraph splits to generate per central node.')
@@ -139,7 +140,7 @@ class DAGSplit(BaseEngine[DAGSplitOptions]):
 
         ignored = set(uuid for uuid, occurence in uuid_occurence.items() if self.options.uuid_threshold is not None and self.options.uuid_threshold <= occurence )
         logger.info(f'After Ignore: {len(uuid_occurence) - len(ignored)} Different Operators')
-
+        
         logger.info(f'User Specified # of Splits - Training/Validation/Test = {self.options.training_dataset_size} / {self.options.validation_dataset_size} / {self.options.test_dataset_size}')
 
         expected_overall_split_count = len(uuid_occurence)*len(self.options.split_scale)*min(self.options.split_count, self.options.split_tries)
@@ -153,57 +154,77 @@ class DAGSplit(BaseEngine[DAGSplitOptions]):
         logger.info(f'Spliting ...')
         splits: dict[int, dict[str, LogicX]] = {split_scale: dict() for split_scale in self.options.split_scale} # {split_scale: {split_hash: split}}
         split_hashes: dict[int, dict[str, list[str]]] = {split_scale: dict() for split_scale in self.options.split_scale} # {split_scale: {uuid: list[split_hash]}}
-        # For Each Split Size:
-        for split_scale in self.options.split_scale:
-            # For Each Operator:
-            logger.info(f' -> Now Retrieving Subgraph Splits with Size {split_scale}...')
+        
+        if self.options.method == "Full":
+            logger.info(f' -> Now Retrieving Full Graph')
             with tqdm.tqdm(total=len(all_uuid_positions)) as progress_bar:
-                for uuid, uuid_positions in all_uuid_positions.items():
-
-                    current_tries = 0
-                    current_split_count = 0
-                    candidate_logicx_indices: set[int] = set(uuid_positions.keys())
-                    # Generate Subgraph Split Repeatedly
-                    while len(candidate_logicx_indices) != 0 and current_split_count < self.options.split_count:
-                        if not (current_tries < self.options.split_tries):
-                            break
-                        selected_logicx_index: int = int(numpy.random.choice(list(candidate_logicx_indices)))
-                        selected_node_index: str = str(numpy.random.choice(list(uuid_positions[selected_logicx_index])))
-
-                        method = self.options.method
-                        if self.options.method == 'MixBasic':
-                            method = random.choice(['Random', 'Cascade', 'RandomFull', 'CascadeFull'])
-                        if self.options.method == 'MixSuper':
-                            method = random.choice(['Random', 'Cascade', 'RandomFull', 'CascadeFull', 'Window'])
-
-                        if method == 'Window':
-                            selected_node_order: int = all_nid2nod[selected_logicx_index][selected_node_index]
-                            if selected_node_order  < split_scale - 1:
-                                continue
-                            selected_node_indices: list[int] = all_nod2nids[selected_logicx_index][selected_node_order]
-                            split = self.__class__.retrieve_split(logicxs[selected_logicx_index], selected_node_indices, split_scale, self.options.split_limit, self.options.method)
-                            split_size = split_scale
-                        else:
-                            split = self.__class__.retrieve_split(logicxs[selected_logicx_index], [selected_node_index], split_scale, self.options.split_limit, self.options.method)
-                            split_size = len(split.dag)
-
-                        current_tries += 1
-                        if split_size not in self.options.split_scale:
-                            continue
-                        split_hash = LogicX.hash(split)
-                        if split_hash in splits[split_size]:
-                            continue
-                        split.dag.graph['origin'] = logicx_hashes[selected_logicx_index]
-                        splits[split_size][split_hash] = split
-                        current_split_count += 1
-                        # Add To Split
-                        split_hashes[split_size].setdefault(uuid, list()).append(split_hash)
-                    if current_split_count < self.options.split_count:
-                        flag = f'No!'
-                    else:
-                        flag = f'Ye!'
-                    progress_bar.set_description(f'Current: {uuid} Enough: ({flag})')
+                logicx_index = 0
+                splits["placeholder0"] = dict()
+                split_hashes["placeholder1"] = []
+                for logicx_index in range(len(all_nod2nids)):
+                    split = self.__class__.retrieve_split(logicxs[logicx_index], logicxs[logicx_index].nodes(), -1, -1, "Full")    
+                    split_hash = LogicX.hash(split)
+                    splits["placeholder0"][split_hash] = split
+                    split.dag.graph['origin'] = logicx_hashes[logicx_index]
+                    split_hashes["placeholder1"].append(split_hash)
                     progress_bar.update(1)
+        else:
+            # For Each Split Size:
+            for split_scale in self.options.split_scale:
+                # For Each Operator:
+                logger.info(f' -> Now Retrieving Subgraph Splits with Size {split_scale}...')
+                with tqdm.tqdm(total=len(all_uuid_positions)) as progress_bar:
+                    for uuid, uuid_positions in all_uuid_positions.items():
+
+                        current_tries = 0
+                        current_split_count = 0
+                        candidate_logicx_indices: set[int] = set(uuid_positions.keys())
+                        # Generate Subgraph Split Repeatedly
+                        while len(candidate_logicx_indices) != 0 and current_split_count < self.options.split_count:
+                            if not (current_tries < self.options.split_tries):
+                                break
+                            selected_logicx_index: int = int(numpy.random.choice(list(candidate_logicx_indices)))
+                            selected_node_index: str = str(numpy.random.choice(list(uuid_positions[selected_logicx_index])))
+
+                            method = self.options.method
+                            if self.options.method == 'MixBasic':
+                                method = random.choice(['Random', 'Cascade', 'RandomFull', 'CascadeFull'])
+                            if self.options.method == 'MixSuper':
+                                method = random.choice(['Random', 'Cascade', 'RandomFull', 'CascadeFull', 'Window'])
+
+                            if method == 'Window':
+                                all_logicx_indices = list(all_nod2nids.keys())
+                                selected_logicx_index: int = int(numpy.random.choice(all_logicx_indices))
+                                selected_node_order: int = int(numpy.random.choice(list(all_nod2nids[selected_logicx_index])))
+                                
+                                if selected_node_order  < split_scale - 1:
+                                    continue
+                                selected_node_indices: list[int] = all_nod2nids[selected_logicx_index][selected_node_order]
+                                split = self.__class__.retrieve_split(logicxs[selected_logicx_index], selected_node_indices, split_scale, self.options.split_limit, method)
+                                split_size = split_scale
+                            else:
+                                selected_logicx_index: int = int(numpy.random.choice(list(candidate_logicx_indices)))
+                                selected_node_index: str = str(numpy.random.choice(list(uuid_positions[selected_logicx_index])))
+                                split = self.__class__.retrieve_split(logicxs[selected_logicx_index], [selected_node_index], split_scale, self.options.split_limit, method)
+                                split_size = len(split.dag)
+
+                            current_tries += 1
+                            if split_size not in self.options.split_scale:
+                                continue
+                            split_hash = LogicX.hash(split)
+                            if split_hash in splits[split_size]:
+                                continue
+                            split.dag.graph['origin'] = logicx_hashes[selected_logicx_index]
+                            splits[split_size][split_hash] = split
+                            current_split_count += 1
+                            # Add To Split
+                            split_hashes[split_size].setdefault(uuid, list()).append(split_hash)
+                        if current_split_count < self.options.split_count:
+                            flag = f'No!'
+                        else:
+                            flag = f'Ye!'
+                        progress_bar.set_description(f'Current: {uuid} Enough: ({flag})')
+                        progress_bar.update(1)
 
         split_with_hashes = [
             (split_hash, splits[split_scale][split_hash])
@@ -234,58 +255,62 @@ class DAGSplit(BaseEngine[DAGSplitOptions]):
 
     @classmethod
     def retrieve_split(cls, logicx: LogicX, center_node_indices: list[str], split_scale: int, split_limit: int, method: Literal['Random', 'Cascade', 'RandomFull', 'CascadeFull', 'Window']) -> LogicX:
-        # Direction: Literal[0, 1, -1] Center Node: 0; Successor: 1; Predecessors: -1;
-        bfs_flags = set(center_node_indices)
-        bfs_queue = collections.deque([[center_node_index, 0] for center_node_index in center_node_indices])
-        if method == 'Window':
-            current_level = 0
-            while len(bfs_queue) != 0 and current_level > -split_scale:
-                prev_level_size = len(bfs_queue)
-                for _ in range(prev_level_size):
-                    node_index = bfs_queue.popleft()
-                    neighbors = numpy.random.shuffle([predecessor for predecessor in logicx.dag.predecessors(node_index)])
-                    for neighbor in neighbors:
-                        if len(bfs_flags) < split_limit and predecessor not in bfs_flags:
-                            bfs_flags.add(predecessor)
-                            bfs_queue.append(predecessor)
-                current_level = current_level - 1
+        if method == "Full":
+            induced_subgraph = logicx.dag.subgraph(center_node_indices)
         else:
-            while len(bfs_queue) != 0 and len(bfs_flags) < split_scale:
-                current_node_index, direction = bfs_queue.popleft()
-                next_levels = list()
+            # Direction: Literal[0, 1, -1] Center Node: 0; Successor: 1; Predecessors: -1;
+            bfs_flags = set(center_node_indices)
+            bfs_queue = collections.deque([[center_node_index, 0] for center_node_index in center_node_indices])
+            if method == 'Window':
+                current_level = 0
+                while len(bfs_queue) != 0 and current_level > -split_scale:
+                    prev_level_size = len(bfs_queue)
+                    for _ in range(prev_level_size):
+                        node_index, direction = bfs_queue.popleft()                    
+                        predecessors = [predecessor for predecessor in logicx.dag.predecessors(node_index)]
+                        numpy.random.shuffle(predecessors)
+                        for predecessor in predecessors:
+                            if len(bfs_flags) < split_limit and predecessor not in bfs_flags:
+                                bfs_flags.add(predecessor)
+                                bfs_queue.append([predecessor, 0])
+                    current_level = current_level - 1
+            else:
+                while len(bfs_queue) != 0 and len(bfs_flags) < split_scale:
+                    current_node_index, direction = bfs_queue.popleft()
+                    next_levels = list()
 
-                if method in ['Random', 'RandomFull']:
-                    for neighbor in networkx.function.all_neighbors(logicx.dag, current_node_index):
-                        next_levels.append((neighbor, 0))
+                    if method in ['Random', 'RandomFull']:
+                        for neighbor in networkx.function.all_neighbors(logicx.dag, current_node_index):
+                            next_levels.append((neighbor, 0))
 
-                if method in ['Cascade', 'CascadeFull']:
-                    if 0 <= direction:
-                        for neighbor in logicx.dag.successors(current_node_index):
-                            next_levels.append((neighbor, 1))
+                    if method in ['Cascade', 'CascadeFull']:
+                        if 0 <= direction:
+                            for neighbor in logicx.dag.successors(current_node_index):
+                                next_levels.append((neighbor, 1))
 
-                    if direction <= 0:
-                        for neighbor in logicx.dag.predecessors(current_node_index):
-                            next_levels.append((neighbor, -1))
+                        if direction <= 0:
+                            for neighbor in logicx.dag.predecessors(current_node_index):
+                                next_levels.append((neighbor, -1))
 
-                if len(next_levels) == 0:
-                    continue
+                    if len(next_levels) == 0:
+                        continue
 
-                numpy.random.shuffle(next_levels)
-                if method in ['Random', 'Cascade']:
-                    limit = numpy.random.randint(1, len(next_levels) + 1)
-                    for neighbor, direction in next_levels[:limit]:
-                        if len(bfs_flags) < split_scale and neighbor not in bfs_flags:
-                            bfs_flags.add(neighbor)
-                            bfs_queue.append([neighbor, direction])
-
-                if method in ['RandomFull', 'CascadeFull']:
-                    if len(bfs_flags) < split_scale:
-                        for neighbor, direction in next_levels:
-                            if neighbor not in bfs_flags:
+                    numpy.random.shuffle(next_levels)
+                    if method in ['Random', 'Cascade']:
+                        limit = numpy.random.randint(1, len(next_levels) + 1)
+                        for neighbor, direction in next_levels[:limit]:
+                            if len(bfs_flags) < split_scale and neighbor not in bfs_flags:
                                 bfs_flags.add(neighbor)
                                 bfs_queue.append([neighbor, direction])
 
-        induced_subgraph = logicx.dag.subgraph(bfs_flags)
+                    if method in ['RandomFull', 'CascadeFull']:
+                        if len(bfs_flags) < split_scale:
+                            for neighbor, direction in next_levels:
+                                if neighbor not in bfs_flags:
+                                    bfs_flags.add(neighbor)
+                                    bfs_queue.append([neighbor, direction])
+
+            induced_subgraph = logicx.dag.subgraph(bfs_flags)
 
         subgraph = networkx.DiGraph()
         subgraph.graph['level'] = True
@@ -333,7 +358,7 @@ class DAGSplit(BaseEngine[DAGSplitOptions]):
         package = dict()
         with tqdm.tqdm(total=len(split_with_hashes), desc='Packing') as progress_bar:
             for split_hash, split in split_with_hashes:
-                package[split_hash] = LogicX.saves_dag(split)
+                package[split_hash] = LogicX.saves_dag(split.dag)
                 progress_bar.update(1)
         logger.info(f'Packed.')
 
