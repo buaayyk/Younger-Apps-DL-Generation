@@ -6,7 +6,7 @@
 # Author: Jason Young (杨郑鑫).
 # E-Mail: AI.Jason.Young@outlook.com
 # Last Modified by: Jason Young (杨郑鑫)
-# Last Modified time: 2025-04-08 16:48:11
+# Last Modified time: 2025-05-12 13:21:25
 # Copyright (c) 2025 Yangs.AI
 # 
 # This source code is licensed under the Apache License 2.0 found in the
@@ -14,4 +14,4 @@
 ########################################################################
 
 
-from .graph_split import GraphSplit, GraphSplitOptions
+from .dag_split import DAGSplit, DAGSplitOptions

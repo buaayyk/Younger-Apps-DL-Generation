@@ -6,7 +6,7 @@
 # Author: Jason Young (杨郑鑫).
 # E-Mail: AI.Jason.Young@outlook.com
 # Last Modified by: Jason Young (杨郑鑫)
-# Last Modified time: 2025-04-24 09:48:02
+# Last Modified time: 2025-05-12 13:08:56
 # Copyright (c) 2025 Yangs.AI
 # 
 # This source code is licensed under the Apache License 2.0 found in the
@@ -24,7 +24,7 @@ import collections
 from typing import Any, Literal
 from pydantic import BaseModel, Field
 
-from younger.commons.io import save_json, create_dir
+from younger.commons.io import save_json, save_pickle, create_dir
 
 from younger_logics_ir.modules import LogicX
 
@@ -33,11 +33,11 @@ from younger_apps_dl.commons.logging import logger, equip_logger
 from younger_apps_dl.engines import BaseEngine, register_engine
 
 
-class GraphSplitOptions(BaseModel):
+class DAGSplitOptions(BaseModel):
     load_dirpath: pathlib.Path = Field(..., description='Directory path to load LogicX\'s.')
     save_dirpath: pathlib.Path = Field(..., description='Directory path to save LogicX\'s.')
 
-    method: Literal['Random', 'Cascade', 'RandomFull', 'CascadeFull', 'Window', 'MixBasic', 'MixSuper'] = Field(..., description='Graph splitting method. '
+    method: Literal['Random', 'Cascade', 'RandomFull', 'CascadeFull', 'Window', 'MixBasic', 'MixSuper'] = Field(..., description='DAG splitting method. '
                                                                                                '\'Random\' selects a random node as center; BFS is used to expand the subgraph, retaining a random subset of nodes at each depth. '
                                                                                                '\'RandomFull\' is similar, but retains all nodes at each BFS depth. '
                                                                                                '\'Cascade\' restricts the expansion to ancestors or descendants of the center node, retaining a random subset at each depth. '
@@ -56,20 +56,20 @@ class GraphSplitOptions(BaseModel):
     validation_dataset_size: int = Field(..., description='Number of subgraphs splits to include in the validation set.')
     test_dataset_size: int = Field(..., description='Number of subgraph splits to include in the test set.')
 
-    min_graph_size: int | None = Field(None, ge=0, description='Minimum number of nodes a full graph must have to be considered for graph split. '
-                                                               'Graphs smaller than this value will be excluded. '
+    min_dag_size: int | None = Field(None, ge=0, description='Minimum number of nodes a full dag must have to be considered for dag split. '
+                                                               'DAGs smaller than this value will be excluded. '
                                                                'Set to `None` to disable this filter.')
-    max_graph_size: int | None = Field(None, ge=0, description='Maximum number of nodes a full graph must have to be considered for graph split. '
-                                                               'Graphs larger than this value will be excluded. '
+    max_dag_size: int | None = Field(None, ge=0, description='Maximum number of nodes a full dag must have to be considered for dag split. '
+                                                               'DAGs larger than this value will be excluded. '
                                                                'Set to `None` to disable this filter.')
 
     uuid_threshold: int | None = Field(None, ge=0, description='Occurence threshold to ignore uuid, lower than threshold will be discarded.')
     seed: int = Field(16861, ge=0, description='Random seed for deterministic behavior during subgraph split sampling.')
 
 
-@register_engine('preprocessor', 'graph_split')
-class GraphSplit(BaseEngine[GraphSplitOptions]):
-    OPTIONS = GraphSplitOptions
+@register_engine('preprocessor', 'dag_split')
+class DAGSplit(BaseEngine[DAGSplitOptions]):
+    OPTIONS = DAGSplitOptions
 
     def run(
         self,
@@ -98,17 +98,17 @@ class GraphSplit(BaseEngine[GraphSplitOptions]):
                 logicx = LogicX()
                 logicx.load(logicx_filepath)
 
-                graph_size = len(logicx.dag)
-                if self.options.min_graph_size is None or self.options.min_graph_size <= graph_size:
-                    min_graph_size_meet = True
+                dag_size = len(logicx.dag)
+                if self.options.min_dag_size is None or self.options.min_dag_size <= dag_size:
+                    min_dag_size_meet = True
                 else:
-                    min_graph_size_meet = False
+                    min_dag_size_meet = False
 
-                if self.options.max_graph_size is None or graph_size <= self.options.max_graph_size:
-                    max_graph_size_meet = True
+                if self.options.max_dag_size is None or dag_size <= self.options.max_dag_size:
+                    max_dag_size_meet = True
                 else:
-                    max_graph_size_meet = False
-                if not (min_graph_size_meet and max_graph_size_meet):
+                    max_dag_size_meet = False
+                if not (min_dag_size_meet and max_dag_size_meet):
                     continue
 
                 logicxs.append(logicx)
@@ -321,18 +321,27 @@ class GraphSplit(BaseEngine[GraphSplitOptions]):
             item_names = item_names,
         )
 
-        items_dirpath = save_dirpath.joinpath('items')
-        create_dir(items_dirpath)
+        pack_filepath = save_dirpath.joinpath('pack.pkl')
+        # create_dir(items_dirpath)
         meta_filepath = save_dirpath.joinpath('meta.json')
 
         logger.info(f'Saving META ... ')
         save_json(meta, meta_filepath, indent=2)
         logger.info(f'Saved.')
 
-        logger.info(f'Saving Items ... ')
-        with tqdm.tqdm(total=len(split_with_hashes), desc='Saving') as progress_bar:
+        logger.info(f'Packing Items ... ')
+        package = dict()
+        with tqdm.tqdm(total=len(split_with_hashes), desc='Packing') as progress_bar:
             for split_hash, split in split_with_hashes:
-                item_filepath = items_dirpath.joinpath(f'{split_hash}')
-                split.save(item_filepath)
+                package[split_hash] = LogicX.saves_dag(split)
                 progress_bar.update(1)
+        logger.info(f'Packed.')
+
+        logger.info(f'Saving Package ... ')
+        save_pickle(package, pack_filepath)
+        # with tqdm.tqdm(total=len(split_with_hashes), desc='Saving') as progress_bar:
+        #     for split_hash, split in split_with_hashes:
+        #         item_filepath = items_dirpath.joinpath(f'{split_hash}')
+        #         split.save(item_filepath)
+        #         progress_bar.update(1)
         logger.info(f'Saved.')

@@ -6,7 +6,7 @@
 # Author: Jason Young (杨郑鑫).
 # E-Mail: AI.Jason.Young@outlook.com
 # Last Modified by: Jason Young (杨郑鑫)
-# Last Modified time: 2025-05-12 10:08:27
+# Last Modified time: 2025-05-12 13:23:36
 # Copyright (c) 2025 Yangs.AI
 # 
 # This source code is licensed under the Apache License 2.0 found in the
@@ -29,8 +29,8 @@ from sklearn.metrics import f1_score, precision_score, recall_score, accuracy_sc
 from younger.commons.io import create_dir
 
 from younger_apps_dl.tasks import BaseTask, register_task
-from younger_apps_dl.engines import StandardTrainer, StandardTrainerOptions, StandardEvaluator, StandardEvaluatorOptions, StandardPredictor, StandardPredictorOptions, GraphSplit, GraphSplitOptions
-from younger_apps_dl.datasets import GraphDataset, GraphData
+from younger_apps_dl.engines import StandardTrainer, StandardTrainerOptions, StandardEvaluator, StandardEvaluatorOptions, StandardPredictor, StandardPredictorOptions, DAGSplit, DAGSplitOptions
+from younger_apps_dl.datasets import DAGDataset, DAGData
 from younger_apps_dl.models import MAEGIN
 
 
@@ -79,7 +79,7 @@ class BasicEmbeddingOptions(BaseModel):
     trainer: StandardTrainerOptions
     evaluator: StandardEvaluatorOptions
     predictor: StandardPredictorOptions
-    preprocessor: GraphSplitOptions
+    preprocessor: DAGSplitOptions
 
     train_dataset: DatasetOptions
     valid_dataset: DatasetOptions
@@ -177,7 +177,7 @@ class BasicEmbedding(BaseTask[BasicEmbeddingOptions]):
 
     def predict(self):
         predictor = StandardPredictor(self.options.predictor)
-        self.dicts = GraphDataset.load_dicts(GraphDataset.load_meta(predictor.options.raw.load_dirpath.joinpath('meta.json')))
+        self.dicts = DAGDataset.load_dicts(DAGDataset.load_meta(predictor.options.raw.load_dirpath.joinpath('meta.json')))
         self.model = self._build_model_(
             len(self.dicts['i2t']),
             self.options.model.node_emb_dim,
@@ -192,7 +192,7 @@ class BasicEmbedding(BaseTask[BasicEmbeddingOptions]):
         )
 
     def preprocess(self):
-        preprocessor = GraphSplit(self.options.preprocessor)
+        preprocessor = DAGSplit(self.options.preprocessor)
         preprocessor.run(self.options.logging_filepath)
 
     def _build_model_(self, node_emb_size: int, node_emb_dim: int, hidden_dim: int, dropout_rate: float, layer_number: int) -> torch.nn.Module:
@@ -205,8 +205,8 @@ class BasicEmbedding(BaseTask[BasicEmbeddingOptions]):
         )
         return model
 
-    def _build_dataset_(self, meta_filepath: pathlib.Path, raw_dirpath: pathlib.Path, processed_dirpath: pathlib.Path, split: Literal['train', 'valid', 'test'], worker_number: int) -> GraphDataset:
-        dataset = GraphDataset(
+    def _build_dataset_(self, meta_filepath: pathlib.Path, raw_dirpath: pathlib.Path, processed_dirpath: pathlib.Path, split: Literal['train', 'valid', 'test'], worker_number: int) -> DAGDataset:
+        dataset = DAGDataset(
             meta_filepath,
             raw_dirpath,
             processed_dirpath,
@@ -253,7 +253,7 @@ class BasicEmbedding(BaseTask[BasicEmbeddingOptions]):
         )
         return scheduler
 
-    def _train_fn_(self, model: torch.nn.Module, minibatch: GraphData) -> list[tuple[str, torch.Tensor, Callable[[float], str]]]:
+    def _train_fn_(self, model: torch.nn.Module, minibatch: DAGData) -> list[tuple[str, torch.Tensor, Callable[[float], str]]]:
         device_descriptor = next(model.parameters()).device
         minibatch = minibatch.to(device_descriptor)
         x, edge_index, golden = self._mask_(minibatch, self.dicts['t2i'], self.options.mask_ratio, self.options.mask_method)
@@ -287,7 +287,7 @@ class BasicEmbedding(BaseTask[BasicEmbeddingOptions]):
         # Return Output & Golden
         with tqdm.tqdm(total=len(dataloader)) as progress_bar:
             for index, minibatch in enumerate(dataloader, start=1):
-                minibatch: GraphData = minibatch.to(device_descriptor)
+                minibatch: DAGData = minibatch.to(device_descriptor)
 
                 if self.options.scheduled_sampling:
                     x, edge_index, golden = self._mask_(minibatch, self.dicts['t2i'], 1, self.options.mask_method, test=True)
@@ -352,7 +352,7 @@ class BasicEmbedding(BaseTask[BasicEmbeddingOptions]):
     def _on_epoch_end_fn_(self, epoch: int) -> None:
         return
 
-    def _mask_(self, minibatch: GraphData, t2i: dict[str, int], mask_ratio: float, mask_method: Literal['Random', 'Purpose'], test: bool = False) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    def _mask_(self, minibatch: DAGData, t2i: dict[str, int], mask_ratio: float, mask_method: Literal['Random', 'Purpose'], test: bool = False) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         device_descriptor = minibatch.x.device
         x = minibatch.x.clone()
         edge_index = minibatch.edge_index.clone()
@@ -395,7 +395,7 @@ class BasicEmbedding(BaseTask[BasicEmbeddingOptions]):
 
         return x, edge_index, golden
 
-    def _simulate_predict_(self, model: torch.nn.Module, minibatch: GraphData, t2i: dict[str, int], simulate_levels: Iterable[int], test: bool = False) -> tuple[torch.Tensor, torch.Tensor]:
+    def _simulate_predict_(self, model: torch.nn.Module, minibatch: DAGData, t2i: dict[str, int], simulate_levels: Iterable[int], test: bool = False) -> tuple[torch.Tensor, torch.Tensor]:
         device_descriptor = minibatch.x.device
         x = minibatch.x.clone()
         edge_index = minibatch.edge_index
@@ -436,14 +436,14 @@ class BasicEmbedding(BaseTask[BasicEmbeddingOptions]):
 
         create_dir(save_dirpath)
 
-        graph_hashes = list()
-        graph_embeddings = list()
+        dag_hashes = list()
+        dag_embeddings = list()
         for logicx_filepath in logicx_filepaths:
             logicx = LogicX()
             logicx.load(logicx_filepath)
-            graph_hashes.append(LogicX.hash(logicx))
+            dag_hashes.append(LogicX.hash(logicx))
 
-            data = GraphDataset.process_graph_data(logicx, self.dicts)
+            data = DAGDataset.process_dag_data(logicx, self.dicts)
             loader = NeighborLoader(
                 data,
                 num_neighbors=[-1] * len(model.encoder.layers),
@@ -454,20 +454,20 @@ class BasicEmbedding(BaseTask[BasicEmbeddingOptions]):
             )
 
             embedding_dim = model.encoder.node_.embedding_layer.embedding_dim
-            graph_embedding = torch.zeros(embedding_dim, device=device_descriptor)
+            dag_embedding = torch.zeros(embedding_dim, device=device_descriptor)
             node_count = 0
             for batch in loader:
-                batch: GraphData = batch.to(device_descriptor)
+                batch: DAGData = batch.to(device_descriptor)
                 out = model.encoder(batch.x, batch.edge_index)               # shape: [total_nodes_in_batch, dim]
                 center_embeddings = out[:batch.batch_size]                   # shape: [batch_size, dim]
-                graph_embedding += center_embeddings.sum(dim=0)
+                dag_embedding += center_embeddings.sum(dim=0)
                 node_count += center_embeddings.shape[0]
             assert len(logicx.dag) == node_count
-            graph_embedding = (graph_embedding/node_count).detach().cpu().numpy().tolist()
-            graph_embeddings.append(graph_embedding)
+            dag_embedding = (dag_embedding/node_count).detach().cpu().numpy().tolist()
+            dag_embeddings.append(dag_embedding)
 
-        hsh_df = pandas.DataFrame(graph_hashes, columns=["logicx_hash"])
-        hsh_df.to_csv(save_dirpath.joinpath("graph_hashes.csv"), index=False)
+        hsh_df = pandas.DataFrame(dag_hashes, columns=["logicx_hash"])
+        hsh_df.to_csv(save_dirpath.joinpath("dag_hashes.csv"), index=False)
 
-        emb_df = pandas.DataFrame(graph_embeddings, columns=[str(i) for i in range(embedding_dim)])
-        emb_df.to_csv(save_dirpath.joinpath("graph_embeddings.csv"), index=False)
+        emb_df = pandas.DataFrame(dag_embeddings, columns=[str(i) for i in range(embedding_dim)])
+        emb_df.to_csv(save_dirpath.joinpath("dag_embeddings.csv"), index=False)
