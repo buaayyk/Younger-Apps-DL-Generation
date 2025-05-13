@@ -88,6 +88,7 @@ class Checkpoint(object):
 
 
 def retrieve_checkpoint_filepaths(dirpath: pathlib.Path, basename: str = 'checkpoint') -> dict[int, pathlib.Path]:
+    
     checkpoint_filename_pattern = re.compile(f'{basename}_Itr_(\d+)\.cp')
     checkpoint_filepaths = dict()
     for path in dirpath.iterdir():
@@ -135,9 +136,20 @@ def save_checkpoint(checkpoint: Checkpoint, save_path: pathlib.Path, basename: s
         torch.save(Checkpoint.save_dict(checkpoint), checkpoint_filepath)
 
         checkpoint_filepaths = retrieve_checkpoint_filepaths(save_path, basename)
-        itrs = sorted(list(checkpoint_filepaths.keys()), reverse=True)
+        itrs = sorted(list(checkpoint_filepaths.keys()),reverse=True)
         for itr in itrs[keep_number:]:
             remove_checkpoint(checkpoint_filepaths[itr])
+    else:
+        checkpoint_filepath = save_path
+        torch.save(Checkpoint.save_dict(checkpoint), checkpoint_filepath)
+
+
+def save_best_checkpoint(checkpoint: Checkpoint, save_path: pathlib.Path, basename: str = 'checkpoint'):
+    if save_path.is_dir():
+        assert len(basename) != 0, f'Invalid checkpoint name.'
+        checkpoint_filename = f'{basename}_best.cp'
+        checkpoint_filepath = save_path.joinpath(checkpoint_filename)
+        torch.save(Checkpoint.save_dict(checkpoint), checkpoint_filepath)
     else:
         checkpoint_filepath = save_path
         torch.save(Checkpoint.save_dict(checkpoint), checkpoint_filepath)

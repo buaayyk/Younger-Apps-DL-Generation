@@ -257,14 +257,13 @@ class BasicEmbedding(BaseTask[BasicEmbeddingOptions]):
         device_descriptor = next(model.parameters()).device
         minibatch = minibatch.to(device_descriptor)
         x, edge_index, golden = self._mask_(minibatch, self.dicts['t2i'], self.options.mask_ratio, self.options.mask_method)
-
         if self.options.scheduled_sampling:
             scheduled_sampling_levels = list()
             # Only For -N, ..., -3, -2, -1
-            for i in range(-self.scheduled_sampling_level_at_epoch, 0):
-                if random.random() <= self.scheduled_sampling_ratio_at_epoch:
+            for i in range(-len(self.options.scheduled_sampling_level), 0):
+                r = random.random()
+                if r <= self.scheduled_sampling_ratio_at_epoch:
                     scheduled_sampling_levels.append(i)
-
             if len(scheduled_sampling_levels):
                 model.eval()
                 with torch.no_grad():
@@ -272,7 +271,6 @@ class BasicEmbedding(BaseTask[BasicEmbeddingOptions]):
 
                 model.train()
                 x = x.detach()
-
         output = model(x.detach(), edge_index)
         loss = torch.nn.functional.cross_entropy(output, golden.squeeze(1), ignore_index=-1)
         loss.backward()
@@ -291,7 +289,7 @@ class BasicEmbedding(BaseTask[BasicEmbeddingOptions]):
 
                 if self.options.scheduled_sampling:
                     x, edge_index, golden = self._mask_(minibatch, self.dicts['t2i'], 1, self.options.mask_method, test=True)
-                    x, output = self._simulate_predict_(model, minibatch, self.dicts['t2i'], range(-self.options.scheduled_sampling_level, 0), test=True)
+                    x, output = self._simulate_predict_(model, minibatch, self.dicts['t2i'], range(-self.options.scheduled_sampling_level[-1], 0 + 1), test=True)
                 else:
                     x, edge_index, golden = self._mask_(minibatch, self.dicts['t2i'], self.options.mask_ratio, self.options.mask_method)
                     output = torch.softmax(model(x, edge_index), dim=-1)
@@ -316,7 +314,7 @@ class BasicEmbedding(BaseTask[BasicEmbeddingOptions]):
         print("gold[:5]:", gold[:5])
 
         metrics = [
-            ('loss', loss, lambda x: f'{x:.4f}'),
+            ('loss', loss / len(dataloader), lambda x: f'{x:.4f}'),
             ('acc', torch.tensor(accuracy_score(gold, pred), device=x.device), lambda x: f'{x:.4f}'),
             ('macro_p', torch.tensor(precision_score(gold, pred, average='macro', zero_division=0), device=x.device), lambda x: f'{x:.4f}'),
             ('macro_r', torch.tensor(recall_score(gold, pred, average='macro', zero_division=0), device=x.device), lambda x: f'{x:.4f}'),
@@ -399,6 +397,7 @@ class BasicEmbedding(BaseTask[BasicEmbeddingOptions]):
         device_descriptor = minibatch.x.device
         x = minibatch.x.clone()
         edge_index = minibatch.edge_index
+        
         predict = torch.zeros_like(model(x, edge_index))
         for predict_level in simulate_levels:
             level = minibatch.level
@@ -415,17 +414,20 @@ class BasicEmbedding(BaseTask[BasicEmbeddingOptions]):
             changed_edge_index = old2new[edge_index[:, edge_mask]]
 
             changed_x = x[changed_nodes]
+
             changed_x[old2new[predict_nodes]] = t2i['__MASK__']
             changed_predict = torch.softmax(model(changed_x, changed_edge_index), dim=-1)
 
             if test:
                 output = torch.argmax(changed_predict, dim=-1, keepdim=True)
             else:
-                output = torch.argmax(torch.multinomial(changed_predict, num_samples=1), dim = -1, keepdim=True)
+                # output = torch.argmax(torch.multinomial(changed_predict, num_samples=1), dim = -1, keepdim=True)
+                output = torch.multinomial(changed_predict, num_samples=1)
 
             x[predict_nodes] = output[old2new[predict_nodes]]
             predict[predict_nodes] = changed_predict[old2new[predict_nodes]]
-            return x, predict
+        
+        return x, predict
 
     def _predict_raw_fn_(self, model: torch.nn.Module, load_dirpath: pathlib.Path, save_dirpath: pathlib.Path):
         logicx_filepaths = [logicx_filepath for logicx_filepath in load_dirpath.joinpath('logicxs').iterdir()]

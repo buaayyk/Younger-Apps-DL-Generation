@@ -31,7 +31,7 @@ from younger.commons.utils import no_operation
 
 from younger_apps_dl.commons.utils import get_device_descriptor, make_reproducible, broadcast_object
 from younger_apps_dl.commons.logging import logger, equip_logger
-from younger_apps_dl.commons.checkpoint import load_checkpoint, save_checkpoint, Checkpoint
+from younger_apps_dl.commons.checkpoint import load_checkpoint, save_checkpoint, Checkpoint, save_best_checkpoint
 
 from younger_apps_dl.engines import BaseEngine, register_engine
 
@@ -138,8 +138,8 @@ class StandardTrainer(BaseEngine[StandardTrainerOptions]):
         if self.options.resume_filepath is None:
             logger.info(f'-> Train from scratch.')
         else:
-            checkpoint = load_checkpoint(self.options.resume_filepath)
-
+            checkpoint = load_checkpoint(self.options.resume_filepath, self.options.checkpoint_basename)
+            
             logger.info(f'-> Train from [Epoch/Step/Itr]@[{checkpoint.epoch}/{checkpoint.step}/{checkpoint.itr}].')
 
             if self.options.reset_iteration:
@@ -386,6 +386,11 @@ class StandardTrainer(BaseEngine[StandardTrainerOptions]):
         model.train()
         optimizer.zero_grad()
         itr = start_from_itr
+
+        best_loss = float('inf')
+        best_epoch = 0
+        best_step = 0
+        best_itr = 0
         # Epoch 1 .. self.options.life_cycle
         for epoch in range(1, self.options.life_cycle + 1):
             if epoch < start_from_epoch:
@@ -435,6 +440,16 @@ class StandardTrainer(BaseEngine[StandardTrainerOptions]):
                     save_checkpoint(checkpoint, self.options.checkpoint_savepath, self.options.checkpoint_basename, self.options.checkpoint_keepdisk)
                     stoc = time.time()
                     logger.info(f'   Time Cost: {stoc-stic:.2f}s')
+
+                    val_loss =  metrics[0][1]
+                    if val_loss < best_loss:
+                        best_loss = val_loss
+                        best_epoch = epoch
+                        best_step = step
+                        best_itr = itr
+                        save_best_checkpoint(checkpoint, self.options.checkpoint_savepath, self.options.checkpoint_basename)
+
+                    logger.info(f"Up to now, Best checkpoint info: [Epoch {best_epoch}] [Step {best_step}] [Itr {best_itr}] val_loss={val_loss:.4f} | best_loss={best_loss:.4f}")
 
                     if self.options.early_stop_enable:
                         if self.options.early_stop_target == 'min':

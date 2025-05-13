@@ -164,6 +164,8 @@ class DAGSplit(BaseEngine[DAGSplitOptions]):
                 split_hashes["placeholder1"]["placeholder2"] = []
                 for logicx_index in range(len(all_nod2nids)):
                     split = self.__class__.retrieve_split(logicxs[logicx_index], logicxs[logicx_index].dag.nodes(), -1, -1, "Full")    
+                    if split.dag.number_of_nodes() > self.options.split_limit:
+                        continue
                     split_hash = LogicX.hash(split)
                     splits["placeholder1"][split_hash] = split
                     split.dag.graph['origin'] = logicx_hashes[logicx_index]
