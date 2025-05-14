@@ -43,7 +43,7 @@ class StandardEvaluator(BaseEngine[StandardEvaluatorOptions]):
     def log(self, metric_names: list[str], metric_values: list[torch.Tensor], metric_formats: list[Callable[[float], str]]) -> None:
         logs = list()
         for metric_name, metric_value, metric_format in zip(metric_names, metric_values, metric_formats):
-            logs.append(f'[{metric_name}]={metric_format(float(metric_value / self.options.node_number))}')
+            logs.append(f'[{metric_name}]={metric_format(float(metric_value))}')
         logger.info(f'Evaluation Results - {" ".join(logs)}')
 
     def run(
@@ -55,7 +55,7 @@ class StandardEvaluator(BaseEngine[StandardEvaluatorOptions]):
         logging_filepath: pathlib.Path | None = None,
     ) -> None:
         equip_logger(logging_filepath)
-        checkpoint = load_checkpoint(self.options.checkpoint_filepath)
+        checkpoint = load_checkpoint(self.options.checkpoint_filepath, None)
 
         device_descriptor = get_device_descriptor('GPU', 0)
         model.to(device=device_descriptor)

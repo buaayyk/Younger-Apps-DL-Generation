@@ -111,6 +111,8 @@ def load_checkpoint(load_path: pathlib.Path, basename: str = 'checkpoint') -> Ch
         checkpoint = Checkpoint.load_dict(torch.load(load_path, map_location=torch.device('cpu')))
 
     if load_path.is_dir():
+        if basename is None:
+            basename = load_path.name
         assert len(basename) != 0, f'Invalid checkpoint name.'
         checkpoint_filepaths = retrieve_checkpoint_filepaths(load_path, basename)
 

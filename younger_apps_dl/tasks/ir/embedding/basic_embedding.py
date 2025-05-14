@@ -326,7 +326,15 @@ class BasicEmbedding(BaseTask[BasicEmbeddingOptions]):
         return metrics
 
     def _evaluate_fn_(self, model: torch.nn.Module, dataloader: torch.utils.data.DataLoader) -> tuple[list[str], list[torch.Tensor], list[Callable[[float], str]]]:
-        return self._valid_fn_(model, dataloader)
+        metrics = self._valid_fn_(model, dataloader)
+        metric_names =[]
+        metric_values = []
+        metric_formats = []
+        for metric_name, metric_value, metric_format in metrics:
+            metric_names.append(metric_name)
+            metric_values.append(metric_value)
+            metric_formats.append(metric_format)
+        return metric_names, metric_values, metric_formats
 
     def _on_step_begin_fn_(self, step: int) -> None:
         return

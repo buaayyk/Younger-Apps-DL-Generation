@@ -138,7 +138,7 @@ class StandardTrainer(BaseEngine[StandardTrainerOptions]):
         if self.options.resume_filepath is None:
             logger.info(f'-> Train from scratch.')
         else:
-            checkpoint = load_checkpoint(self.options.resume_filepath, self.options.checkpoint_basename)
+            checkpoint = load_checkpoint(self.options.resume_filepath, None)
             
             logger.info(f'-> Train from [Epoch/Step/Itr]@[{checkpoint.epoch}/{checkpoint.step}/{checkpoint.itr}].')
 
