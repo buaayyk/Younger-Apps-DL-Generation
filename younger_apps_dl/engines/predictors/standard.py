@@ -42,6 +42,8 @@ class StandardPredictorOptions(BaseModel):
                                                                     '\'cli\' indicates data is passed from command-line interface.')
 
     raw: RawInputOptions | None
+    generate_flag: bool = Field(False)
+    start_level: int = Field(10)
 
 
 @register_engine('predictor', 'standard')

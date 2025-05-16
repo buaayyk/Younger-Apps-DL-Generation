@@ -176,6 +176,9 @@ class BasicEmbedding(BaseTask[BasicEmbeddingOptions]):
         )
 
     def predict(self):
+        if self.options.predictor.generate_flag is True:
+            self.generate()
+            return
         predictor = StandardPredictor(self.options.predictor)
         self.dicts = DAGDataset.load_dicts(DAGDataset.load_meta(predictor.options.raw.load_dirpath.joinpath('meta.json')))
         self.model = self._build_model_(
@@ -194,6 +197,73 @@ class BasicEmbedding(BaseTask[BasicEmbeddingOptions]):
     def preprocess(self):
         preprocessor = DAGSplit(self.options.preprocessor)
         preprocessor.run(self.options.logging_filepath)
+
+    def generate(self):
+        import networkx
+        from torch_geometric.loader import DataLoader
+        from torch_geometric.utils import to_networkx
+        from younger_logics_ir.modules import LogicX
+        from younger_apps_dl.commons.checkpoint import load_checkpoint
+        from younger_apps_dl.commons.utils import get_device_descriptor
+
+        meta_filepath = self.options.predictor.raw.load_dirpath.joinpath('meta.json')
+        raw_dirpath = self.options.predictor.raw.load_dirpath.joinpath('items')
+        processed_dirpath = self.options.predictor.raw.load_dirpath.joinpath("processed")
+        worker_number = 4
+        save_dirpath = self.options.predictor.raw.save_dirpath
+
+        dataset =  self._build_dataset_(
+            meta_filepath,
+            raw_dirpath,
+            processed_dirpath,
+            'test',
+            worker_number
+        )
+        
+        self.model = self._build_model_(
+            len(dataset.dicts['i2t']),
+            self.options.model.node_emb_dim,
+            self.options.model.hidden_dim,
+            self.options.model.dropout_rate,
+            self.options.model.layer_number
+        )
+
+        checkpoint = load_checkpoint(self.options.predictor.checkpoint_filepath, None)
+        device_descriptor = get_device_descriptor('GPU', 0)
+        self.model.to(device=device_descriptor)
+        print(f'-> Checkpoint from [Epoch/Step/Itr]@[{checkpoint.epoch}/{checkpoint.step}/{checkpoint.itr}].')
+        print(f'    v Loading Parameters ...')
+        self.model.load_state_dict(checkpoint.model_state_dict)
+
+        dataloader = DataLoader(dataset, batch_size=1, shuffle=False)
+        logicxs = []
+        self.model.eval()
+        with torch.no_grad():
+            for idx, minibatch in enumerate(tqdm.tqdm(dataloader)):
+                minibatch: DAGData = minibatch.to(device_descriptor)
+                G = to_networkx(minibatch, to_undirected=False)
+                newlevel = [-1 for _ in range(G.number_of_nodes())]
+                for node in networkx.topological_sort(G):
+                    if G.in_degree(node) == 0:
+                        newlevel[node] = 0
+                    else:
+                        newlevel[node] = max(newlevel[pred] for pred in G.predecessors(node)) + 1
+                newlevel = torch.tensor(newlevel).to(device=device_descriptor)
+                max_level = int(torch.max(newlevel).cpu().item())
+                minibatch.level = newlevel
+
+                x, output = self._simulate_predict_(self.model, minibatch, dataset.dicts['t2i'], range(self.options.predictor.start_level, max_level), test=True)
+                
+                x[minibatch.level < self.options.predictor.start_level] = minibatch.x[minibatch.level < self.options.predictor.start_level]
+
+                dag = to_networkx(DAGData(x=x, edge_index=minibatch.edge_index), to_undirected=False)
+                for node in dag.nodes():
+                    dag.nodes[node]['uuid'] = dataset.dicts['i2t'][x[node][0].cpu().item()]
+                
+                logicx = LogicX()
+                logicx.setup_dag(dag)
+                logicxs.append(logicx)
+                logicx.save(save_dirpath.joinpath(str(idx)))
 
     def _build_model_(self, node_emb_size: int, node_emb_dim: int, hidden_dim: int, dropout_rate: float, layer_number: int) -> torch.nn.Module:
         model = MAEGIN(
